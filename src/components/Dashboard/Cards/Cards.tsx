@@ -3,7 +3,7 @@
 import { Icon } from '@iconify/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import React, { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useUser } from '@clerk/nextjs'
 import toast from 'react-hot-toast'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { ConnectWallet, WalletDropdown, WalletDropdownDisconnect } from '@coinbase/onchainkit/wallet'
@@ -19,7 +19,7 @@ const cardColors = [
 ]
 
 const Cards = () => {
-    const { data: session } = useSession()
+    const { user } = useUser()
     const [cards, setCards] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedCardIdx, setSelectedCardIdx] = useState(0)
@@ -30,7 +30,7 @@ const Cards = () => {
     const { disconnect } = useDisconnect()
 
     // Form states for new card
-    const [cardHolder, setCardHolder] = useState(session?.user?.name || '')
+    const [cardHolder, setCardHolder] = useState(user?.fullName || '')
     const [cardColor, setCardColor] = useState(cardColors[0].value)
     const [spendingLimit, setSpendingLimit] = useState('5000')
 
@@ -86,13 +86,13 @@ const Cards = () => {
             }
             fetchWallet()
         }
-    }, [session, isConnected, address])
+    }, [user, isConnected, address])
 
     useEffect(() => {
-        if (session?.user?.name && !cardHolder) {
-            setCardHolder(session.user.name)
+        if (user?.fullName && !cardHolder) {
+            setCardHolder(user.fullName)
         }
-    }, [session])
+    }, [user])
 
     const handleCreateCard = async () => {
         try {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Loader from '../Common/Loader'
@@ -10,22 +10,18 @@ interface AuthGuardProps {
 }
 
 export default function AuthGuard({ children }: AuthGuardProps) {
-  const { data: session, status } = useSession()
+  const { isLoaded, isSignedIn } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'loading') return
+    if (isLoaded && !isSignedIn) router.push('/sign-in')
+  }, [isLoaded, isSignedIn, router])
 
-    if (!session) {
-      router.push('/signin')
-    }
-  }, [session, status, router])
-
-  if (status === 'loading') {
+  if (!isLoaded) {
     return <Loader />
   }
 
-  if (!session) {
+  if (!isSignedIn) {
     return null
   }
 

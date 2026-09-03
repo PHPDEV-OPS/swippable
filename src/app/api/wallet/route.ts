@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import { getWalletByUserId, updateWalletAddress, insertWallet, findUserByEmail } from '@/lib/db'
+import { getAuthenticatedUser } from '@/lib/auth'
+import { getWalletByUserId, updateWalletAddress, insertWallet } from '@/lib/db'
 import crypto from 'crypto'
 
 export async function GET() {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const user = findUserByEmail.get(session.user.email) as any
+    const user = await getAuthenticatedUser()
     if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const wallet = getWalletByUserId.get(user.id)
@@ -21,15 +14,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const user = findUserByEmail.get(session.user.email) as any
+    const user = await getAuthenticatedUser()
     if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { address } = await request.json()

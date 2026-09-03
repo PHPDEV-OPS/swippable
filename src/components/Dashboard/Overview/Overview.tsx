@@ -1,6 +1,6 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useUser } from '@clerk/nextjs'
 import React, { useState, useEffect } from 'react'
 import { Icon } from '@iconify/react'
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts'
@@ -16,7 +16,7 @@ const chartData = [
 ]
 
 const Overview = () => {
-    const { data: session } = useSession()
+    const { user } = useUser()
     const [cards, setCards] = useState<any[]>([])
     const [transactions, setTransactions] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -51,7 +51,7 @@ const Overview = () => {
             <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
                 <div>
                     <h1 className='text-2xl font-bold text-white mb-1'>
-                        Good afternoon, {session?.user?.name || 'User'}! 👋
+                        Good afternoon, {user?.fullName || 'User'}! 👋
                     </h1>
                     <p className='text-white/40 text-sm'>Welcome back to your financial dashboard</p>
                 </div>

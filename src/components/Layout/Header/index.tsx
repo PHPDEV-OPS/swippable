@@ -9,12 +9,12 @@ import HeaderLink from '../Header/Navigation/HeaderLink'
 import MobileHeaderLink from '../Header/Navigation/MobileHeaderLink'
 import { useTheme } from 'next-themes'
 import { Icon } from '@iconify/react/dist/iconify.js'
-import { useSession, signOut } from 'next-auth/react'
+import { UserButton, useUser } from '@clerk/nextjs'
 
 const Header: React.FC = () => {
   const pathUrl = usePathname()
   const { theme, setTheme } = useTheme()
-  const { data: session, status } = useSession()
+  const { isLoaded, isSignedIn, user } = useUser()
 
   const [navbarOpen, setNavbarOpen] = useState(false)
   const [sticky, setSticky] = useState(false)
@@ -66,17 +66,12 @@ const Header: React.FC = () => {
             ))}
           </nav>
           <div className='sm:flex hidden gap-4'>
-            {status === 'loading' ? (
+            {!isLoaded ? (
               <div className='text-white'>Loading...</div>
-            ) : session ? (
+            ) : isSignedIn ? (
               <div className='flex items-center gap-4'>
-                <span className='text-white'>Welcome, {session.user?.name || session.user?.email}</span>
-                <button
-                  onClick={() => signOut({ callbackUrl: '/' })}
-                  className='bg-primary text-white px-4 py-2 rounded-lg hover:bg-transparent hover:text-primary border border-primary'
-                >
-                  Sign Out
-                </button>
+                <span className='text-white'>Welcome, {user?.fullName || user?.primaryEmailAddress?.emailAddress}</span>
+                <UserButton />
               </div>
             ) : (
               <>
@@ -128,17 +123,12 @@ const Header: React.FC = () => {
               <MobileHeaderLink key={index} item={item} />
             ))}
             <div className='mt-4 flex flex-col gap-4 w-full'>
-              {status === 'loading' ? (
+              {!isLoaded ? (
                 <div className='text-white text-center'>Loading...</div>
-              ) : session ? (
+              ) : isSignedIn ? (
                 <div className='flex flex-col gap-4'>
-                  <span className='text-white text-center'>Welcome, {session.user?.name || session.user?.email}</span>
-                  <button
-                    onClick={() => signOut({ callbackUrl: '/' })}
-                    className='bg-primary text-white px-4 py-2 rounded-lg hover:bg-transparent hover:text-primary border border-primary'
-                  >
-                    Sign Out
-                  </button>
+                  <span className='text-white text-center'>Welcome, {user?.fullName || user?.primaryEmailAddress?.emailAddress}</span>
+                  <div className='flex justify-center'><UserButton /></div>
                 </div>
               ) : (
                 <>

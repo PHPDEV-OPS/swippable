@@ -3,10 +3,10 @@
 import { Icon } from '@iconify/react'
 import { motion } from 'framer-motion'
 import React, { useState } from 'react'
-import { useSession } from 'next-auth/react'
+import { useUser } from '@clerk/nextjs'
 
 export function Settings() {
-    const { data: session } = useSession()
+    const { user } = useUser()
     const [activeTab, setActiveTab] = useState('Profile')
     const [kycStatus, setKycStatus] = useState('PENDING')
     const [loadingKyc, setLoadingKyc] = useState(false)
@@ -94,15 +94,15 @@ export function Settings() {
                                 <div className='flex flex-col sm:flex-row items-center gap-8 pb-12 border-b border-white/5'>
                                     <div className='relative group'>
                                         <div className='w-32 h-32 rounded-full border-4 border-white/10 overflow-hidden ring-4 ring-white/5'>
-                                            <img src={session?.user?.image || 'https://i.pravatar.cc/300'} alt='profile' className='w-full h-full object-cover' />
+                                            <img src={user?.imageUrl || 'https://i.pravatar.cc/300'} alt='profile' className='w-full h-full object-cover' />
                                         </div>
                                         <button className='absolute bottom-0 right-0 bg-primary text-background p-2.5 rounded-xl shadow-lg hover:scale-110 transition-transform'>
                                             <Icon icon='solar:camera-linear' width='20' height='20' />
                                         </button>
                                     </div>
                                     <div className='text-center sm:text-left'>
-                                        <h3 className='text-2xl font-black text-white mb-1'>{session?.user?.name || 'Alexander Munoz'}</h3>
-                                        <p className='text-white/40 text-sm font-bold'>{session?.user?.email || 'alexander@example.com'}</p>
+                                        <h3 className='text-2xl font-black text-white mb-1'>{user?.fullName || 'Alexander Munoz'}</h3>
+                                        <p className='text-white/40 text-sm font-bold'>{user?.primaryEmailAddress?.emailAddress || 'alexander@example.com'}</p>
                                         <div className='mt-4 flex gap-3 justify-center sm:justify-start items-center'>
                                             {kycStatus === 'VERIFIED' ? (
                                                 <span className='px-3 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-full border border-primary/20'>Verified User</span>
@@ -123,11 +123,11 @@ export function Settings() {
                                 <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
                                     <div className='space-y-2'>
                                         <label className='text-white/40 text-[10px] font-black uppercase tracking-widest ml-1'>Full Name</label>
-                                        <input type="text" defaultValue={session?.user?.name || 'Alexander Munoz'} className='w-full bg-white/5 border border-white/5 rounded-2xl px-5 py-4 text-white text-sm outline-none focus:border-primary transition-all' />
+                                        <input type="text" defaultValue={user?.fullName || 'Alexander Munoz'} className='w-full bg-white/5 border border-white/5 rounded-2xl px-5 py-4 text-white text-sm outline-none focus:border-primary transition-all' />
                                     </div>
                                     <div className='space-y-2'>
                                         <label className='text-white/40 text-[10px] font-black uppercase tracking-widest ml-1'>Email Address</label>
-                                        <input type="email" defaultValue={session?.user?.email || 'alexander@example.com'} className='w-full bg-white/5 border border-white/5 rounded-2xl px-5 py-4 text-white text-sm outline-none focus:border-primary transition-all' />
+                                        <input type="email" defaultValue={user?.primaryEmailAddress?.emailAddress || 'alexander@example.com'} className='w-full bg-white/5 border border-white/5 rounded-2xl px-5 py-4 text-white text-sm outline-none focus:border-primary transition-all' />
                                     </div>
                                     <div className='space-y-2'>
                                         <label className='text-white/40 text-[10px] font-black uppercase tracking-widest ml-1'>Phone Number</label>

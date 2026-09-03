@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, CreditCard, Activity, ArrowLeftRight, Settings, LogOut, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { signOut } from 'next-auth/react';
+import { useClerk } from '@clerk/nextjs';
 
 const sidebarItems = [
     { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
@@ -18,6 +18,7 @@ const sidebarItems = [
 export function Sidebar() {
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
+    const { signOut } = useClerk();
 
     return (
         <>
@@ -73,7 +74,7 @@ export function Sidebar() {
                         <button
                             onClick={() => {
                                 setIsOpen(false);
-                                signOut({ callbackUrl: '/' });
+                                signOut({ redirectUrl: '/' });
                             }}
                             className="flex items-center gap-3 px-4 py-3 w-full text-white/40 hover:text-red-400 hover:bg-red-400/5 rounded-2xl transition-all duration-300 font-bold text-sm"
                         >

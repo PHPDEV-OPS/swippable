@@ -1,3 +1,4 @@
+import { ClerkProvider } from '@clerk/nextjs';
 import { DM_Sans } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
@@ -14,13 +15,15 @@ export default function RootLayout({
   return (
     <html lang='en' suppressHydrationWarning>
       <body className={`${font.className}`}>
-        <Providers>
+        <ClerkProvider>
+          <Providers>
           <Aoscompo>
-            <ConditionalLayout>
-              {children}
-            </ConditionalLayout>
+          <ConditionalLayout>
+          {children}
+          </ConditionalLayout>
           </Aoscompo>
-        </Providers>
+          </Providers>
+        </ClerkProvider>
       </body>
     </html>
   )
