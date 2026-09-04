@@ -1,9 +1,15 @@
 'use client'
 
-import { Sidebar } from '@/components/Dashboard/Sidebar/Sidebar';
-import { DashboardHeader } from '@/components/Dashboard/Header/Header';
-import { Overview } from '@/components/Dashboard/Overview/Overview';
-import AuthGuard from '@/components/Auth/AuthGuard';
+import { Inter } from 'next/font/google'
+import { DashboardHeader } from '@/components/Dashboard/Header/Header'
+import AuthGuard from '@/components/Auth/AuthGuard'
+import { AiChatButton } from '@/components/Dashboard/AiChat/AiChatButton'
+
+const inter = Inter({
+    subsets: ['latin'],
+    weight: ['400', '500', '600', '700', '800'],
+    variable: '--font-inter'
+})
 
 export default function DashboardLayout({
     children,
@@ -12,14 +18,12 @@ export default function DashboardLayout({
 }) {
     return (
         <AuthGuard>
-            <div className="h-screen bg-background flex overflow-hidden">
-                <Sidebar />
-                <div className="flex-1 flex flex-col h-full overflow-hidden">
-                    <DashboardHeader />
-                    <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar">
-                        {children}
-                    </main>
-                </div>
+            <div className={`min-h-screen ${inter.className} bg-[#f5f5f7] text-[#15151a] transition-colors duration-200 dark:bg-[#080808] dark:text-[#f3f4f6]`}>
+                <DashboardHeader />
+                <main className="mx-auto w-full max-w-[1440px] px-3 pt-24 pb-16 sm:px-6 sm:pt-28 md:pt-32 lg:px-8">
+                    {children}
+                </main>
+                <AiChatButton />
             </div>
         </AuthGuard>
     )

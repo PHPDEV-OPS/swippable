@@ -9,7 +9,7 @@ export async function GET() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const wallet = getWalletByUserId.get(user.id)
+    const wallet = await getWalletByUserId(user.id)
     return NextResponse.json(wallet || { message: 'No wallet found' })
 }
 
@@ -26,13 +26,13 @@ export async function POST(request: Request) {
     }
 
     try {
-        const existingWallet = getWalletByUserId.get(user.id)
+        const existingWallet = await getWalletByUserId(user.id)
 
         if (existingWallet) {
-            updateWalletAddress.run(address, user.id)
+            await updateWalletAddress(address, user.id)
         } else {
             const walletId = crypto.randomUUID()
-            insertWallet.run(walletId, user.id, address, 0)
+            await insertWallet(walletId, user.id, address, 0)
         }
 
         return NextResponse.json({ message: 'Wallet connected successfully', address })

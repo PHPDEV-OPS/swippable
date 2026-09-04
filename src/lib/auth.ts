@@ -1,5 +1,5 @@
 import { currentUser } from '@clerk/nextjs/server'
-import { findUserByEmail, insertUser } from '@/lib/db'
+import { findUserByEmail, insertUser, recordAppSession, touchAppSession } from '@/lib/db'
 
 export async function getAuthenticatedUser() {
     const clerkUser = await currentUser()
@@ -9,10 +9,11 @@ export async function getAuthenticatedUser() {
         return null
     }
 
-    let user = findUserByEmail.get(email) as any
+    let user = await findUserByEmail(email) as any
+    const isNewUser = !user
 
     if (!user) {
-        const result = insertUser.run(
+        const result = await insertUser(
             clerkUser.id,
             clerkUser.firstName || clerkUser.username || 'User',
             email,
@@ -21,6 +22,12 @@ export async function getAuthenticatedUser() {
             'PENDING'
         )
         user = { id: result.lastInsertRowid, email }
+    }
+
+    if (isNewUser) {
+        await recordAppSession(clerkUser.id, user.id)
+    } else {
+        await touchAppSession(clerkUser.id, user.id)
     }
 
     return user

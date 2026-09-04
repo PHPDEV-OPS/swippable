@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         const { card_id, amount, currency, merchant_name, transaction_reference } = data;
         
         // Find card
-        const card = getCardByCardId.get(card_id) as any;
+        const card = await getCardByCardId(card_id) as any;
         if (!card) {
             console.error(`Card not found: ${card_id}`);
             return NextResponse.json({ status: 'ignored' });
@@ -88,10 +88,10 @@ export async function POST(request: Request) {
         const usdcAmount = parseFloat((amount / rate).toFixed(2));
 
         // Log conversion rate
-        insertConversionRate.run(`rate_${Date.now()}`, currency, rate);
+        await insertConversionRate(`rate_${Date.now()}`, currency, rate);
 
         // Check Wallet Balance
-        const wallet = getWalletByUserId.get(card.user_id) as any;
+        const wallet = await getWalletByUserId(card.user_id) as any;
         if (!wallet || wallet.usdc_balance < usdcAmount) {
              console.error(`Insufficient funds for user ${card.user_id}`);
              // In a real scenario, we should have declined the authorization request (which happens before this event usually).
@@ -113,12 +113,12 @@ export async function POST(request: Request) {
             
             // Deduct from wallet
             if (wallet) {
-                updateWalletBalance.run(wallet.usdc_balance - usdcAmount, card.user_id);
+                await updateWalletBalance(Number(wallet.usdc_balance) - usdcAmount, card.user_id);
             }
 
             // Log transaction
             const txId = `tx_${Date.now()}`;
-            insertTransaction.run(
+            await insertTransaction(
                 txId,
                 card.user_id,
                 card_id,
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
 
             // Update card balance (fiat view)
             const newBalance = card.balance - amount;
-            updateCardBalance.run(newBalance, card_id);
+            await updateCardBalance(newBalance, card_id);
 
         } catch (e) {
             console.error('Crypto payment failed', e);
@@ -142,20 +142,20 @@ export async function POST(request: Request) {
     } else if (eventType === 'card_credit_event.successful') {
         // Handle Credit
         const { card_id, amount, currency, merchant_name } = data;
-        const card = getCardByCardId.get(card_id) as any;
+        const card = await getCardByCardId(card_id) as any;
         
         if (card) {
              const rate = await getExchangeRate(currency);
              const usdcAmount = parseFloat((amount / rate).toFixed(2));
              
              // Credit wallet
-             const wallet = getWalletByUserId.get(card.user_id) as any;
+             const wallet = await getWalletByUserId(card.user_id) as any;
              if (wallet) {
-                updateWalletBalance.run(wallet.usdc_balance + usdcAmount, card.user_id);
+                await updateWalletBalance(Number(wallet.usdc_balance) + usdcAmount, card.user_id);
              }
 
              const txId = `tx_${Date.now()}`;
-             insertTransaction.run(
+             await insertTransaction(
                 txId,
                 card.user_id,
                 card_id,
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
                 'credit',
                 `tx_hash_${Date.now()}`
             );
-            updateCardBalance.run(card.balance + amount, card_id);
+            await updateCardBalance(Number(card.balance) + amount, card_id);
         }
     }
 

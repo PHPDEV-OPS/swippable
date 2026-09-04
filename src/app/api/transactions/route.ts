@@ -8,7 +8,7 @@ export async function GET() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const transactions = getTransactionsByUserId.all(user.id)
+    const transactions = await getTransactionsByUserId(user.id)
     return NextResponse.json(transactions)
 }
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const usdcAmount = currency === 'USD' ? amount : 0;
 
     try {
-        const result = insertTransaction.run(
+        const result = await insertTransaction(
             txId,
             user.id,
             cardId || null,

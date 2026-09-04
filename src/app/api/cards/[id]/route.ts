@@ -15,7 +15,7 @@ export async function PATCH(
     const { id } = await params
 
     try {
-        updateCardStatus.run(status, id, user.id)
+        await updateCardStatus(status, Number(id), user.id)
         return NextResponse.json({ message: 'Card status updated' })
     } catch (error) {
         console.error('Error updating card:', error)
@@ -35,7 +35,7 @@ export async function DELETE(
     const { id } = await params
 
     try {
-        deleteCard.run(id, user.id)
+        await deleteCard(Number(id), user.id)
         return NextResponse.json({ message: 'Card deleted' })
     } catch (error) {
         console.error('Error deleting card:', error)

@@ -10,7 +10,7 @@ export async function GET() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const cards = getCardsByUserId.all(user.id)
+    const cards = await getCardsByUserId(user.id)
     return NextResponse.json(cards)
 }
 
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     const maskedPan = `**** **** **** ${cardData.card_number.split(' ')[3] || cardData.card_number.slice(-4)}`;
 
     try {
-        const result = insertCard.run(
+        const result = await insertCard(
             user.id,
             cardData.card_id,
             cardData.card_id, // bridgecard_ref_id

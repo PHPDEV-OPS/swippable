@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
     if (action === 'verify_email') {
         // Simulate successful verification
-        updateUserKycStatus.run('VERIFIED', user.id);
+        await updateUserKycStatus('VERIFIED', user.id);
         return NextResponse.json({ message: 'Email verified successfully', status: 'VERIFIED' });
     }
 
