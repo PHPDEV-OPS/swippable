@@ -24,7 +24,7 @@ import {
     Check
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useMarkNotificationsRead, useNotifications } from '@/lib/client-api'
+import { useDismissNotifications, useMarkNotificationsRead, useNotifications } from '@/lib/client-api'
 
 export function DashboardHeader() {
     const pathname = usePathname()
@@ -35,6 +35,7 @@ export function DashboardHeader() {
 
     const notifications = useNotifications()
     const markRead = useMarkNotificationsRead()
+    const dismiss = useDismissNotifications()
 
     const unreadCount = (notifications.data ?? []).filter((item) => !item.read).length
 
@@ -168,11 +169,7 @@ export function DashboardHeader() {
                         <button
                             type="button"
                             aria-label="Notifications"
-                            onClick={() => {
-                                const next = !showNotifications
-                                setShowNotifications(next)
-                                if (next && unreadCount > 0) markRead.mutate()
-                            }}
+                            onClick={() => setShowNotifications((open) => !open)}
                             className="relative flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl text-[#777984] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-black/[0.04] dark:border-white/[0.08] transition-all hover:scale-105 active:scale-95 hover:text-[#1c1c24] dark:text-[#8c8e98] dark:hover:text-white cursor-pointer"
                         >
                             <Bell size={17} />
@@ -193,32 +190,75 @@ export function DashboardHeader() {
                                     transition={{ duration: 0.15 }}
                                     className="absolute right-0 mt-2 w-72 sm:w-80 rounded-2xl border border-black/[0.08] bg-white p-4 shadow-2xl backdrop-blur-xl dark:border-white/[0.1] dark:bg-[#121214]"
                                 >
-                                    <div className="flex items-center justify-between pb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
-                                        <h4 className="text-xs font-bold text-[#1c1c24] dark:text-white">Notifications</h4>
-                                        <button
-                                            type="button"
-                                            onClick={() => markRead.mutate()}
-                                            className="cursor-pointer text-[10px] font-semibold text-[#6330cf] dark:text-[#c4a8ff]"
-                                        >
-                                            Mark all read
-                                        </button>
+                                    <div className="flex items-center justify-between gap-2 pb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
+                                        <h4 className="text-xs font-bold text-[#1c1c24] dark:text-white">
+                                            Notifications
+                                            {unreadCount > 0 && (
+                                                <span className="ml-1.5 rounded-full bg-[#f0eaff] px-1.5 py-0.5 text-[9px] font-bold text-[#6330cf] dark:bg-[#281b45] dark:text-[#c4a8ff]">
+                                                    {unreadCount} new
+                                                </span>
+                                            )}
+                                        </h4>
+
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => markRead.mutate()}
+                                                disabled={unreadCount === 0}
+                                                className="text-[10px] font-semibold text-[#6330cf] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#c4a8ff]"
+                                            >
+                                                Mark all read
+                                            </button>
+                                            <span className="text-[10px] text-[#d3d4da] dark:text-white/20">|</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => dismiss.mutate({ scope: 'all' })}
+                                                disabled={(notifications.data ?? []).length === 0}
+                                                className="text-[10px] font-semibold text-[#81858c] transition-colors hover:text-[#ef5362] disabled:cursor-not-allowed disabled:opacity-35"
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="mt-2 space-y-2 max-h-64 overflow-y-auto scrollbar-none">
-                                        {(notifications.data ?? []).map((item) => (
-                                            <div
-                                                key={item.id}
-                                                className={cn(
-                                                    'p-2.5 rounded-xl hover:bg-[#f5f5f7] dark:hover:bg-white/[0.04] transition-colors',
-                                                    !item.read && 'bg-[#f7f4ff] dark:bg-white/[0.03]'
-                                                )}
-                                            >
-                                                <div className="flex justify-between items-start gap-2">
-                                                    <p className="text-xs font-bold text-[#1c1c24] dark:text-white">{item.title}</p>
-                                                    <span className="shrink-0 text-[9px] text-[#81858c]">{relativeTime(item.createdAt)}</span>
-                                                </div>
-                                                <p className="text-[11px] text-[#777984] dark:text-[#888a93] mt-0.5">{item.body}</p>
-                                            </div>
-                                        ))}
+                                        <AnimatePresence initial={false}>
+                                            {(notifications.data ?? []).map((item) => (
+                                                <motion.div
+                                                    key={item.id}
+                                                    layout
+                                                    initial={{ opacity: 0, y: -4 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, x: 24, height: 0, marginTop: 0 }}
+                                                    transition={{ duration: 0.18 }}
+                                                    className={cn(
+                                                        'group/notif relative p-2.5 rounded-xl hover:bg-[#f5f5f7] dark:hover:bg-white/[0.04] transition-colors',
+                                                        !item.read && 'bg-[#f7f4ff] dark:bg-white/[0.05]'
+                                                    )}
+                                                >
+                                                    <div className="flex justify-between items-start gap-2">
+                                                        <p className="flex items-center gap-1.5 text-xs font-bold text-[#1c1c24] dark:text-white">
+                                                            {!item.read && (
+                                                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#7042f4]" />
+                                                            )}
+                                                            {item.title}
+                                                        </p>
+                                                        <span className="shrink-0 text-[9px] text-[#81858c] group-hover/notif:opacity-0 transition-opacity">
+                                                            {relativeTime(item.createdAt)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-[#777984] dark:text-[#888a93] mt-0.5">{item.body}</p>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => dismiss.mutate({ id: item.id })}
+                                                        aria-label="Dismiss notification"
+                                                        className="absolute right-1.5 top-1.5 rounded-md p-1 text-[#9a9ca4] opacity-0 transition-all hover:bg-black/5 hover:text-[#ef5362] group-hover/notif:opacity-100 dark:hover:bg-white/10"
+                                                    >
+                                                        <X size={11} />
+                                                    </button>
+                                                </motion.div>
+                                            ))}
+                                        </AnimatePresence>
 
                                         {notifications.isLoading && (
                                             <p className="py-6 text-center text-[11px] text-[#81858c]">Loading…</p>

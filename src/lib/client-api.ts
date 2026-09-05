@@ -171,6 +171,29 @@ export function useSetCardStatus() {
     })
 }
 
+export interface RevealedCard {
+    pan: string
+    cvv: string
+    expiry: string
+    holder: string
+    last4: string
+}
+
+/**
+ * Fetches the full card number and CVV for a one-off reveal.
+ *
+ * Deliberately a mutation rather than a query: the result is never cached by
+ * React Query, so the sensitive values live only in the component that asked
+ * for them and vanish when it unmounts or the user hides the card again.
+ */
+export function useRevealCard() {
+    return useMutation({
+        mutationFn: (cardId: string) =>
+            request<RevealedCard>(`/api/cards/${encodeURIComponent(cardId)}/secure`, { method: 'POST' }),
+        gcTime: 0,
+    })
+}
+
 export function useDeleteCard() {
     const invalidate = useInvalidateMoney()
     return useMutation({
@@ -212,11 +235,58 @@ export function useLinkWallet() {
     })
 }
 
+/**
+ * Marks everything read.
+ *
+ * Applied optimistically so the badge and the unread highlights clear on the
+ * click rather than one network round trip later; the cache is rolled back if
+ * the request fails.
+ */
 export function useMarkNotificationsRead() {
     const client = useQueryClient()
     return useMutation({
-        mutationFn: () => request<{ message: string }>('/api/notifications', { method: 'POST' }),
-        onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.notifications }),
+        mutationFn: () => request<{ message: string; updated: number }>('/api/notifications', { method: 'POST' }),
+        onMutate: async () => {
+            await client.cancelQueries({ queryKey: queryKeys.notifications })
+            const previous = client.getQueryData<AppNotification[]>(queryKeys.notifications)
+            client.setQueryData<AppNotification[]>(queryKeys.notifications, (current) =>
+                (current ?? []).map((item) => ({ ...item, read: true }))
+            )
+            return { previous }
+        },
+        onError: (_error, _vars, context) => {
+            if (context?.previous) client.setQueryData(queryKeys.notifications, context.previous)
+        },
+        onSettled: () => client.invalidateQueries({ queryKey: queryKeys.notifications }),
+    })
+}
+
+/** Dismisses notifications - one by id, or the whole list. */
+export function useDismissNotifications() {
+    const client = useQueryClient()
+    return useMutation({
+        mutationFn: (target: { id: number } | { scope: 'read' | 'all' }) =>
+            request<{ message: string; deleted: number }>('/api/notifications', {
+                method: 'DELETE',
+                body: JSON.stringify(target),
+            }),
+        onMutate: async (target) => {
+            await client.cancelQueries({ queryKey: queryKeys.notifications })
+            const previous = client.getQueryData<AppNotification[]>(queryKeys.notifications)
+
+            client.setQueryData<AppNotification[]>(queryKeys.notifications, (current) => {
+                const list = current ?? []
+                if ('id' in target) return list.filter((item) => item.id !== target.id)
+                if (target.scope === 'all') return []
+                return list.filter((item) => !item.read)
+            })
+
+            return { previous }
+        },
+        onError: (_error, _vars, context) => {
+            if (context?.previous) client.setQueryData(queryKeys.notifications, context.previous)
+        },
+        onSettled: () => client.invalidateQueries({ queryKey: queryKeys.notifications }),
     })
 }
 

@@ -335,6 +335,42 @@ export async function settlePendingDeposit(txId: string, metadata: Record<string
     return (rows[0] as { id: number; user_id: number; amount: string; balance_after: string } | undefined) ?? null
 }
 
+/**
+ * Ages out deposits that were never confirmed.
+ *
+ * An STK prompt the user ignored, or a declared crypto transfer that never
+ * landed, would otherwise sit PENDING forever and keep showing in the UI as
+ * if it were still in flight. Nothing is credited here - these rows never
+ * moved the balance, so flipping them to FAILED is purely cosmetic bookkeeping.
+ *
+ * Called lazily on read, so no cron is required.
+ */
+export async function expireStalePendingDeposits(userId: number) {
+    await ensureSchema()
+    const rows = await sql`
+    UPDATE transactions
+       SET status = 'FAILED',
+           metadata = metadata || jsonb_build_object(
+             'expired', true,
+             'expiredAt', to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SSZ'),
+             'expiryReason', 'No confirmation received before the deposit window closed'
+           )
+     WHERE user_id = ${userId}
+       AND status = 'PENDING'
+       AND (
+         (channel = 'MPESA' AND created_at < NOW() - ${MPESA_PENDING_TTL}::interval)
+         OR (channel = 'CRYPTO' AND created_at < NOW() - ${CRYPTO_PENDING_TTL}::interval)
+       )
+    RETURNING id, channel`
+    return rows as unknown as Array<{ id: number; channel: string }>
+}
+
+// An STK prompt expires on the handset in about a minute; the callback follows
+// within seconds of approval. Crypto gets far longer - a transfer can sit
+// unconfirmed through congestion without being lost.
+const MPESA_PENDING_TTL = process.env.MPESA_PENDING_TTL ?? '15 minutes'
+const CRYPTO_PENDING_TTL = process.env.CRYPTO_PENDING_TTL ?? '6 hours'
+
 export async function failPendingDeposit(txId: string, metadata: Record<string, unknown>) {
     await ensureSchema()
     const rows = await sql`
@@ -651,7 +687,26 @@ export async function getNotifications(userId: number, limit = 20) {
 
 export async function markNotificationsRead(userId: number) {
     await ensureSchema()
-    await sql`UPDATE notifications SET read_at = NOW() WHERE user_id = ${userId} AND read_at IS NULL`
+    const rows = await sql`
+    UPDATE notifications SET read_at = NOW()
+     WHERE user_id = ${userId} AND read_at IS NULL
+    RETURNING id`
+    return (rows as unknown as Array<{ id: number }>).length
+}
+
+/** Dismisses notifications outright. `onlyRead` keeps anything still unread. */
+export async function deleteNotifications(userId: number, onlyRead: boolean) {
+    await ensureSchema()
+    const rows = onlyRead
+        ? await sql`DELETE FROM notifications WHERE user_id = ${userId} AND read_at IS NOT NULL RETURNING id`
+        : await sql`DELETE FROM notifications WHERE user_id = ${userId} RETURNING id`
+    return (rows as unknown as Array<{ id: number }>).length
+}
+
+export async function deleteNotification(userId: number, id: number) {
+    await ensureSchema()
+    const rows = await sql`DELETE FROM notifications WHERE user_id = ${userId} AND id = ${id} RETURNING id`
+    return (rows as unknown as Array<{ id: number }>).length > 0
 }
 
 /* ------------------------------------------------------------ transactions */

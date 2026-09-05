@@ -18,6 +18,8 @@ import {
     useWallet,
 } from '@/lib/client-api'
 import type { VirtualCard } from '@/types/api'
+import { SwippableCard } from './SwippableCard'
+import { useRevealCard, type RevealedCard } from '@/lib/client-api'
 
 const cardColors = [
     { name: 'Swippable Violet', value: 'from-[#6330cf] via-[#824fed] to-[#5b2bd0]' },
@@ -48,6 +50,10 @@ const Cards = () => {
     const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [showFundModal, setShowFundModal] = useState<'FUND' | 'WITHDRAW' | null>(null)
+
+    const reveal = useRevealCard()
+    const [revealed, setRevealed] = useState<RevealedCard | null>(null)
+    const [revealError, setRevealError] = useState<string | null>(null)
 
     const [cardHolder, setCardHolder] = useState('')
     const [cardColor, setCardColor] = useState(cardColors[0].value)
@@ -117,6 +123,24 @@ const Cards = () => {
             toast.success(`Card closed. ${formatMoney(result.released)} released back to your wallet.`)
         } catch (error) {
             toast.error(errorMessage(error, 'Could not terminate the card'))
+        }
+    }
+
+    const handleReveal = async (card: VirtualCard) => {
+        // A second press drops the values rather than merely hiding them.
+        if (revealed) {
+            setRevealed(null)
+            setRevealError(null)
+            return
+        }
+
+        setRevealError(null)
+        try {
+            setRevealed(await reveal.mutateAsync(card.cardId))
+        } catch (error) {
+            const message = errorMessage(error, 'Could not retrieve the card details')
+            setRevealError(message)
+            toast.error(message, { duration: 6000 })
         }
     }
 
@@ -197,83 +221,27 @@ const Cards = () => {
                                     initial={{ opacity: 0, scale: 0.96 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     transition={{ delay: index * 0.08 }}
-                                    onClick={() => setSelectedCardId(card.cardId)}
-                                    className={`bg-gradient-to-br ${card.color} group relative flex aspect-[1.6/1] cursor-pointer flex-col justify-between overflow-hidden rounded-[2rem] p-7 shadow-xl transition-all duration-300 hover:scale-[1.01] ${
+                                    onClick={() => {
+                                        setSelectedCardId(card.cardId)
+                                        setRevealed(null)
+                                        setRevealError(null)
+                                    }}
+                                    className={`cursor-pointer rounded-[7%/11%] transition-all ${
                                         selectedCard?.cardId === card.cardId
                                             ? 'ring-3 ring-[#7042f4] ring-offset-4 ring-offset-[#f5f5f7] dark:ring-offset-[#080808]'
-                                            : ''
+                                            : 'opacity-95 hover:opacity-100'
                                     }`}
                                 >
-                                    <div className="pointer-events-none absolute -inset-full bg-[linear-gradient(115deg,transparent_30%,rgba(255,255,255,0.2)_48%,rgba(255,255,255,0.05)_55%,transparent_70%)] opacity-80" />
-
-                                    <div className="relative z-10 flex items-start justify-between">
-                                        <span className="text-2xl font-black italic tracking-tighter text-white">
-                                            Swippable
-                                        </span>
-                                        <div className="flex flex-col items-end">
-                                            <Icon
-                                                icon="solar:chip-linear"
-                                                width="42"
-                                                height="42"
-                                                className="text-white/90"
-                                            />
-                                            <span className="mt-1 text-[9px] font-black uppercase tracking-widest text-white/70">
-                                                {card.type} · {card.provider}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="relative z-10 mt-3 font-mono text-2xl tabular-nums tracking-[0.16em] text-white drop-shadow-sm sm:text-3xl">
-                                        {card.maskedPan}
-                                    </div>
-
-                                    <div className="relative z-10 flex items-end justify-between text-white">
-                                        <div className="space-y-3">
-                                            <div>
-                                                <p className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-white/70">
-                                                    Card Holder
-                                                </p>
-                                                <p className="text-base font-bold uppercase sm:text-lg">
-                                                    {card.holder}
-                                                </p>
-                                            </div>
-                                            <div className="flex gap-8">
-                                                <div>
-                                                    <p className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-white/70">
-                                                        Expiry
-                                                    </p>
-                                                    <p className="text-sm font-semibold sm:text-base">
-                                                        {card.expiry || '—'}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-white/70">
-                                                        Status
-                                                    </p>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div
-                                                            className={`h-2 w-2 rounded-full ${
-                                                                card.status === 'ACTIVE'
-                                                                    ? 'animate-pulse bg-[#12b88f]'
-                                                                    : 'bg-amber-400'
-                                                            }`}
-                                                        />
-                                                        <p className="text-sm font-semibold capitalize sm:text-base">
-                                                            {card.status.toLowerCase()}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-1">
-                                            <div className="flex items-center justify-center rounded-xl border border-white/20 bg-white/20 px-3 py-1.5 text-xs font-bold backdrop-blur-md">
-                                                {card.currency}
-                                            </div>
-                                            <span className="text-[10px] font-semibold text-white/80">
-                                                {formatMoney(card.availableToSpend, card.currency)} left
-                                            </span>
-                                        </div>
-                                    </div>
+                                    <SwippableCard
+                                        card={card}
+                                        interactive={selectedCard?.cardId === card.cardId}
+                                        revealed={selectedCard?.cardId === card.cardId ? revealed : null}
+                                        revealing={selectedCard?.cardId === card.cardId && reveal.isPending}
+                                        revealError={selectedCard?.cardId === card.cardId ? revealError : null}
+                                        onReveal={
+                                            selectedCard?.cardId === card.cardId ? () => handleReveal(card) : undefined
+                                        }
+                                    />
                                 </motion.div>
                             ))
                         )}

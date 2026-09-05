@@ -15,6 +15,8 @@ import {
     Coins,
     X,
     AlertCircle,
+    CheckCircle2,
+    Clock,
 } from 'lucide-react'
 import {
     ResponsiveContainer,
@@ -70,6 +72,10 @@ export function Wallet() {
 
     const [topUpCardId, setTopUpCardId] = useState('')
     const [topUpAmount, setTopUpAmount] = useState('100')
+
+    // Outcome of the last deposit, shown as a modal rather than a toast so a
+    // successful top-up is impossible to miss.
+    const [depositOutcome, setDepositOutcome] = useState<DepositOutcome | null>(null)
 
     const wallet = useWallet(timeframe)
     const cardsQuery = useCards()
@@ -152,9 +158,21 @@ export function Wallet() {
                 address: activeAddress ?? undefined,
             })
             setIsDepositModalOpen(false)
-            toast.success(result.message, { duration: 6000 })
+            setDepositOutcome({
+                status: result.status === 'SUCCESS' ? 'SUCCESS' : 'PENDING',
+                message: result.message,
+                amount: result.creditedAmount ?? depositAmount,
+                channel: depositChannel,
+                balance: result.balance,
+            })
         } catch (error) {
-            toast.error(errorMessage(error, 'Could not start the deposit'), { duration: 6000 })
+            setIsDepositModalOpen(false)
+            setDepositOutcome({
+                status: 'FAILED',
+                message: errorMessage(error, 'Could not start the deposit'),
+                amount: depositAmount,
+                channel: depositChannel,
+            })
         }
     }
 
@@ -552,7 +570,13 @@ export function Wallet() {
                                 onClick={() =>
                                     sandboxTopUp.mutate('500.00', {
                                         onSuccess: (result) =>
-                                            toast.success(result.message ?? 'Sandbox credit applied'),
+                                            setDepositOutcome({
+                                                status: 'SUCCESS',
+                                                message: result.message ?? 'Sandbox credit applied',
+                                                amount: result.creditedAmount ?? '500.00',
+                                                channel: 'SANDBOX',
+                                                balance: result.balance,
+                                            }),
                                         onError: (error) =>
                                             toast.error(errorMessage(error, 'Sandbox credit failed')),
                                     })
@@ -816,6 +840,17 @@ export function Wallet() {
                 )}
             </AnimatePresence>
 
+            {/* Deposit outcome */}
+            <AnimatePresence>
+                {depositOutcome && (
+                    <DepositOutcomeModal
+                        outcome={depositOutcome}
+                        currency={currency}
+                        onClose={() => setDepositOutcome(null)}
+                    />
+                )}
+            </AnimatePresence>
+
             {/* Fund card modal */}
             <AnimatePresence>
                 {isTopUpCardModalOpen && (
@@ -1002,4 +1037,107 @@ function EmptyState({ message }: { message: string }) {
 function shortReference(txId: string): string {
     if (txId.length <= 16) return txId
     return `${txId.slice(0, 8)}…${txId.slice(-6)}`
+}
+
+interface DepositOutcome {
+    status: 'SUCCESS' | 'PENDING' | 'FAILED'
+    message: string
+    amount: string
+    channel: string
+    balance?: string
+}
+
+/**
+ * Deposit result popup.
+ *
+ * Deliberately distinguishes "credited" from "waiting for confirmation": an
+ * M-Pesa prompt that has been sent is not money in the wallet yet, and showing
+ * it as a success would be a lie the balance then contradicts.
+ */
+function DepositOutcomeModal({
+    outcome,
+    currency,
+    onClose,
+}: {
+    outcome: DepositOutcome
+    currency: string
+    onClose: () => void
+}) {
+    const tone = {
+        SUCCESS: {
+            icon: <CheckCircle2 size={30} />,
+            ring: 'bg-[#e7faf4] text-[#12b88f] dark:bg-[#0b3c32] dark:text-[#28d6aa]',
+            title: 'Wallet topped up',
+        },
+        PENDING: {
+            icon: <Clock size={30} />,
+            ring: 'bg-[#fef7eb] text-[#e9a72b] dark:bg-[#38270b] dark:text-[#f7b746]',
+            title: 'Awaiting confirmation',
+        },
+        FAILED: {
+            icon: <AlertCircle size={30} />,
+            ring: 'bg-[#ffebeb] text-[#ef5362] dark:bg-[#3c151a] dark:text-[#ff7a87]',
+            title: 'Deposit not started',
+        },
+    }[outcome.status]
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={onClose}
+            />
+            <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 18 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 18 }}
+                transition={{ type: 'spring', duration: 0.35 }}
+                className="relative z-10 w-full max-w-sm rounded-[28px] border border-black/[0.08] bg-white p-7 text-center text-[#1c1c24] shadow-2xl dark:border-white/[0.1] dark:bg-[#121214] dark:text-white"
+            >
+                <motion.div
+                    initial={{ scale: 0.4, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.08, type: 'spring', stiffness: 260, damping: 16 }}
+                    className={cn('mx-auto flex h-16 w-16 items-center justify-center rounded-full', tone.ring)}
+                >
+                    {tone.icon}
+                </motion.div>
+
+                <h3 className="mt-4 text-lg font-bold tracking-tight">{tone.title}</h3>
+
+                <p className="mt-1 text-3xl font-black tracking-tight">
+                    {formatMoney(outcome.amount, currency)}
+                </p>
+
+                <p className="mt-3 text-xs leading-relaxed text-[#777984] dark:text-[#888a93]">
+                    {outcome.message}
+                </p>
+
+                {outcome.balance && (
+                    <p className="mt-3 rounded-xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold dark:bg-white/[0.05]">
+                        New balance: {formatMoney(outcome.balance, currency)}
+                    </p>
+                )}
+
+                {outcome.status === 'PENDING' && (
+                    <p className="mt-3 text-[10px] font-medium text-[#9a9ca4]">
+                        {outcome.channel === 'MPESA'
+                            ? 'Your balance updates the moment you approve the prompt on your phone. Unapproved prompts are marked failed automatically.'
+                            : 'Your balance updates once the transfer reaches the required confirmations on Base.'}
+                    </p>
+                )}
+
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-5 w-full rounded-xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] py-2.5 text-xs font-bold text-white shadow-md transition-opacity hover:opacity-95"
+                >
+                    Done
+                </button>
+            </motion.div>
+        </div>
+    )
 }

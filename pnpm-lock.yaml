@@ -77,6 +77,9 @@ importers:
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
+      gsap:
+        specifier: ^3.15.0
+        version: 3.15.0
       lucide-react:
         specifier: ^0.562.0
         version: 0.562.0(react@19.2.3)
@@ -4385,6 +4388,9 @@ packages:
   grunt@0.4.5:
     resolution: {integrity: sha512-1iq3ylLjzXqz/KSq1OAE2qhnpcbkF2WyhsQcavZt+YmgvHu0EbPMEhGhy2gr0FP67isHpRdfwjB5WVeXXcJemQ==}
     engines: {node: '>= 0.8.0'}
+
+  gsap@3.15.0:
+    resolution: {integrity: sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A==}
 
   h3@1.15.11:
     resolution: {integrity: sha512-L3THSe2MPeBwgIZVSH5zLdBBU90TOxarvhK9d04IDY2AmVS8j2Jz2LIWtwsGOU3lu2I5jCN7FNvVfY2+XyF+mg==}
@@ -12979,6 +12985,8 @@ snapshots:
       rimraf: 2.2.8
       underscore.string: 2.2.1
       which: 1.0.9
+
+  gsap@3.15.0: {}
 
   h3@1.15.11:
     dependencies:

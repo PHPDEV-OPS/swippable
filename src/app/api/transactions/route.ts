@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth'
 import { withRouteErrors } from '@/lib/http'
-import { getTransactionsByUserId } from '@/lib/db'
+import { expireStalePendingDeposits, getTransactionsByUserId } from '@/lib/db'
 import { serializeTransaction } from '@/lib/serialize'
 
 export const dynamic = 'force-dynamic'
@@ -15,6 +15,10 @@ export const GET = withRouteErrors('transactions:list', async (request: Request)
 
     const limitParam = Number(new URL(request.url).searchParams.get('limit'))
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 200
+
+    // Age out deposits that were never confirmed so the list does not show
+    // an abandoned STK prompt as though it were still in flight.
+    await expireStalePendingDeposits(user.id)
 
     const rows = await getTransactionsByUserId(user.id, limit)
     return NextResponse.json(rows.map(serializeTransaction))

@@ -7,7 +7,13 @@ import {
     getFlowDeltas,
     type ActivityPeriod,
 } from '@/lib/analytics'
-import { getCardAllocationTotals, getCardsByUserId, getPreviousBalance, getTransactionsByUserId } from '@/lib/db'
+import {
+    expireStalePendingDeposits,
+    getCardAllocationTotals,
+    getCardsByUserId,
+    getPreviousBalance,
+    getTransactionsByUserId,
+} from '@/lib/db'
 import { decimal, percentChange } from '@/lib/money'
 import { serializeCard, serializeTransaction } from '@/lib/serialize'
 import type { DashboardSummary } from '@/types/api'
@@ -26,6 +32,8 @@ export const GET = withRouteErrors('dashboard:summary', async (request: Request)
 
     const requested = new URL(request.url).searchParams.get('period') as ActivityPeriod | null
     const period: ActivityPeriod = requested && PERIODS.includes(requested) ? requested : 'Month'
+
+    await expireStalePendingDeposits(user.id)
 
     const balance = decimal(user.wallet_balance)
 
