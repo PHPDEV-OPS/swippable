@@ -1,36 +1,23 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import { getCardsByUserId, insertCard, findUserByEmail } from '@/lib/db'
+import { getAuthenticatedUser } from '@/lib/auth'
+import { getCardsByUserId, insertCard } from '@/lib/db'
 // @ts-ignore
 import aes from 'aes-everywhere'
 
 export async function GET() {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user?.email) {
+    const user = await getAuthenticatedUser()
+    if (!user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = findUserByEmail.get(session.user.email) as any
-    if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    const cards = getCardsByUserId.all(user.id)
+    const cards = await getCardsByUserId(user.id)
     return NextResponse.json(cards)
 }
 
 export async function POST(request: Request) {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const user = findUserByEmail.get(session.user.email) as any
+    const user = await getAuthenticatedUser()
     if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { type, color, balance, currency, holder: customHolder, spendingLimit, pin } = await request.json()
@@ -93,7 +80,7 @@ export async function POST(request: Request) {
     const maskedPan = `**** **** **** ${cardData.card_number.split(' ')[3] || cardData.card_number.slice(-4)}`;
 
     try {
-        const result = insertCard.run(
+        const result = await insertCard(
             user.id,
             cardData.card_id,
             cardData.card_id, // bridgecard_ref_id

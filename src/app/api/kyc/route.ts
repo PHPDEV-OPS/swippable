@@ -1,33 +1,20 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import { findUserByEmail, updateUserKycStatus } from '@/lib/db'
+import { getAuthenticatedUser } from '@/lib/auth'
+import { updateUserKycStatus } from '@/lib/db'
 
 export async function GET() {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const user = findUserByEmail.get(session.user.email) as any
+    const user = await getAuthenticatedUser()
     if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     return NextResponse.json({ kyc_status: user.kyc_status || 'PENDING' })
 }
 
 export async function POST(request: Request) {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const user = findUserByEmail.get(session.user.email) as any
+    const user = await getAuthenticatedUser()
     if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Mock Email Verification Logic
@@ -38,7 +25,7 @@ export async function POST(request: Request) {
 
     if (action === 'verify_email') {
         // Simulate successful verification
-        updateUserKycStatus.run('VERIFIED', user.id);
+        await updateUserKycStatus('VERIFIED', user.id);
         return NextResponse.json({ message: 'Email verified successfully', status: 'VERIFIED' });
     }
 

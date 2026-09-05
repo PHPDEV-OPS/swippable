@@ -4,7 +4,7 @@ import axios from 'axios'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import Loader from '@/components/Common/Loader'
-import AuthLayout from '../AuthLayout'
+import { AuthLayout } from '../AuthLayout'
 import { Icon } from '@iconify/react'
 
 const ResetPassword = ({ token }: { token: string }) => {
@@ -65,10 +65,7 @@ const ResetPassword = ({ token }: { token: string }) => {
   }
 
   return (
-    <AuthLayout
-      title="Set New Password"
-      subtitle={`Resetting password for ${user.email || 'your account'}`}
-    >
+    <AuthLayout mode="sign-in">
       <form onSubmit={handleSubmit} className='space-y-6'>
         <div className='relative group'>
           <div className='absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-primary transition-colors'>

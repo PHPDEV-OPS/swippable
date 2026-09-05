@@ -1,35 +1,22 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import { getWalletByUserId, updateWalletAddress, insertWallet, findUserByEmail } from '@/lib/db'
+import { getAuthenticatedUser } from '@/lib/auth'
+import { getWalletByUserId, updateWalletAddress, insertWallet } from '@/lib/db'
 import crypto from 'crypto'
 
 export async function GET() {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user?.email) {
+    const user = await getAuthenticatedUser()
+    if (!user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = findUserByEmail.get(session.user.email) as any
-    if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    const wallet = getWalletByUserId.get(user.id)
+    const wallet = await getWalletByUserId(user.id)
     return NextResponse.json(wallet || { message: 'No wallet found' })
 }
 
 export async function POST(request: Request) {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const user = findUserByEmail.get(session.user.email) as any
+    const user = await getAuthenticatedUser()
     if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { address } = await request.json()
@@ -39,13 +26,13 @@ export async function POST(request: Request) {
     }
 
     try {
-        const existingWallet = getWalletByUserId.get(user.id)
+        const existingWallet = await getWalletByUserId(user.id)
 
         if (existingWallet) {
-            updateWalletAddress.run(address, user.id)
+            await updateWalletAddress(address, user.id)
         } else {
             const walletId = crypto.randomUUID()
-            insertWallet.run(walletId, user.id, address, 0)
+            await insertWallet(walletId, user.id, address, 0)
         }
 
         return NextResponse.json({ message: 'Wallet connected successfully', address })

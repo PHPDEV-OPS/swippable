@@ -33,7 +33,7 @@ export default function ScrollToTop() {
   return (
     <div className="fixed bottom-8 right-8 z-999">
       <div className="flex gap-2.5 items-center">
-        <Link href={"#contact"} className="hidden lg:block bg-primary hover:bg-primary/80 text-sm text-black font-medium px-4 py-3.5 leading-none rounded-lg text-nowrap flex items-center justify-start gap-2">
+        <Link href={"#contact"} className="hidden lg:block bg-gradient-to-r from-[#6330cf] to-[#8553ec] hover:opacity-95 text-sm text-white font-medium px-4 py-3.5 leading-none rounded-lg text-nowrap flex items-center justify-start gap-2 shadow-lg shadow-purple-500/20 transition-all">
           <Icon icon="mdi:chat" width={16} height={16} />
           Chat With Support
         </Link>

@@ -72,9 +72,9 @@ const Hero = () => {
             </div>
             <div className='flex items-center md:justify-start justify-center gap-8'>
               <Link href={"/#work"}
-                className='bg-primary hover:bg-primary/80 flex items-center gap-2 border border-primary rounded-lg font-semibold text-background py-3 px-7 cursor-pointer'>
+                className='bg-gradient-to-r from-[#6330cf] to-[#8553ec] hover:opacity-95 flex items-center gap-2 border border-purple-500/30 rounded-lg font-semibold text-white py-3 px-7 cursor-pointer shadow-lg shadow-purple-500/20 transition-all'>
                 Get Started
-                <Image src={"/images/icons/icon-arrow.svg"} alt='arrow-icon' width={20} height={20} />
+                <Image src={"/images/icons/icon-arrow.svg"} alt='arrow-icon' width={20} height={20} className='brightness-0 invert' />
               </Link>
             </div>
           </motion.div>

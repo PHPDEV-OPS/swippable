@@ -12,10 +12,15 @@ const CardSlider = () => {
 
   useEffect(() => {
     const fetchPrices = async () => {
-      const ids = pricedeta.map(item => item.title.toLowerCase()).join(',');
-      const response = await fetch(`/api/crypto-price?ids=${ids}&vs_currency=usd`);
-      const data = await response.json();
-      setPrices(data);
+      try {
+        const ids = pricedeta.map(item => item.title.toLowerCase()).join(',');
+        const response = await fetch(`/api/crypto-price?ids=${ids}&vs_currency=usd`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data) setPrices(data);
+      } catch {
+        // Prevent unhandled promise rejection during background price polling
+      }
     };
 
     fetchPrices();

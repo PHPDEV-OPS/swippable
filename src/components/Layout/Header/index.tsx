@@ -9,12 +9,12 @@ import HeaderLink from '../Header/Navigation/HeaderLink'
 import MobileHeaderLink from '../Header/Navigation/MobileHeaderLink'
 import { useTheme } from 'next-themes'
 import { Icon } from '@iconify/react/dist/iconify.js'
-import { useSession, signOut } from 'next-auth/react'
+import { UserButton, useUser } from '@clerk/nextjs'
 
 const Header: React.FC = () => {
   const pathUrl = usePathname()
   const { theme, setTheme } = useTheme()
-  const { data: session, status } = useSession()
+  const { isLoaded, isSignedIn, user } = useUser()
 
   const [navbarOpen, setNavbarOpen] = useState(false)
   const [sticky, setSticky] = useState(false)
@@ -66,29 +66,24 @@ const Header: React.FC = () => {
             ))}
           </nav>
           <div className='sm:flex hidden gap-4'>
-            {status === 'loading' ? (
+            {!isLoaded ? (
               <div className='text-white'>Loading...</div>
-            ) : session ? (
+            ) : isSignedIn ? (
               <div className='flex items-center gap-4'>
-                <span className='text-white'>Welcome, {session.user?.name || session.user?.email}</span>
-                <button
-                  onClick={() => signOut({ callbackUrl: '/' })}
-                  className='bg-primary text-white px-4 py-2 rounded-lg hover:bg-transparent hover:text-primary border border-primary'
-                >
-                  Sign Out
-                </button>
+                <span className='text-white'>Welcome, {user?.fullName || user?.primaryEmailAddress?.emailAddress}</span>
+                <UserButton />
               </div>
             ) : (
               <>
                 <Link
-                  href='/signin'
-                  className='bg-transparent border border-primary text-primary px-4 py-2 rounded-lg hover:bg-blue-600 hover:text-white'
+                  href='/sign-in'
+                  className='bg-transparent border border-primary text-primary px-4 py-2 rounded-lg hover:bg-primary hover:text-white transition-all'
                 >
                   Sign In
                 </Link>
                 <Link
-                  href='/signup'
-                  className='bg-primary text-white px-4 py-2 rounded-lg hover:bg-transparent hover:text-primary border border-primary'
+                  href='/sign-up'
+                  className='bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white px-4 py-2 rounded-lg hover:opacity-95 border border-purple-500/30 transition-all shadow-md shadow-purple-500/20'
                 >
                   Sign Up
                 </Link>
@@ -128,30 +123,25 @@ const Header: React.FC = () => {
               <MobileHeaderLink key={index} item={item} />
             ))}
             <div className='mt-4 flex flex-col gap-4 w-full'>
-              {status === 'loading' ? (
+              {!isLoaded ? (
                 <div className='text-white text-center'>Loading...</div>
-              ) : session ? (
+              ) : isSignedIn ? (
                 <div className='flex flex-col gap-4'>
-                  <span className='text-white text-center'>Welcome, {session.user?.name || session.user?.email}</span>
-                  <button
-                    onClick={() => signOut({ callbackUrl: '/' })}
-                    className='bg-primary text-white px-4 py-2 rounded-lg hover:bg-transparent hover:text-primary border border-primary'
-                  >
-                    Sign Out
-                  </button>
+                  <span className='text-white text-center'>Welcome, {user?.fullName || user?.primaryEmailAddress?.emailAddress}</span>
+                  <div className='flex justify-center'><UserButton /></div>
                 </div>
               ) : (
                 <>
                   <Link
-                    href='/signin'
-                    className='bg-transparent border border-primary text-primary px-4 py-2 rounded-lg hover:bg-blue-600 hover:text-white text-center'
+                    href='/sign-in'
+                    className='bg-transparent border border-primary text-primary px-4 py-2 rounded-lg hover:bg-primary hover:text-white text-center transition-all'
                     onClick={() => setNavbarOpen(false)}
                   >
                     Sign In
                   </Link>
                   <Link
-                    href='/signup'
-                    className='bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-center'
+                    href='/sign-up'
+                    className='bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white px-4 py-2 rounded-lg hover:opacity-95 text-center transition-all shadow-md shadow-purple-500/20'
                     onClick={() => setNavbarOpen(false)}
                   >
                     Sign Up

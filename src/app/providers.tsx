@@ -1,7 +1,6 @@
 'use client'
 
 import { ThemeProvider } from 'next-themes'
-import { SessionProvider } from 'next-auth/react'
 import { ReactNode, useState } from 'react'
 import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -21,15 +20,13 @@ export function Providers({ children }: { children: ReactNode }) {
                     chain={base}
                 >
                     <WalletProvider>
-                        <SessionProvider>
-                            <ThemeProvider
-                                attribute='class'
-                                enableSystem={true}
-                                defaultTheme='system'
-                            >
-                                {children}
-                            </ThemeProvider>
-                        </SessionProvider>
+                        <ThemeProvider
+                            attribute='class'
+                            enableSystem={true}
+                            defaultTheme='system'
+                        >
+                            {children}
+                        </ThemeProvider>
                     </WalletProvider>
                 </OnchainKitProvider>
             </QueryClientProvider>

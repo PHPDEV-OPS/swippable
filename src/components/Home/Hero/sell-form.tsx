@@ -88,7 +88,7 @@ const SellCrypto = () => {
                 <div
                   key={crypto.name}
                   onClick={() => handleDropdownSelect(crypto)}
-                  className='px-3 bg-dark_grey text-white hover:text-background py-2 hover:bg-primary cursor-pointer'>
+                  className='px-3 bg-dark_grey text-white hover:text-white py-2 hover:bg-primary cursor-pointer'>
                   {crypto.name}
                 </div>
               ))}
@@ -123,7 +123,7 @@ const SellCrypto = () => {
           <p>Total Price: </p>
           <p>${totalCost}</p>
         </div>
-        <button className='hover:text-background font-medium text-lg bg-transparent w-full border border-primary rounded-lg py-3 text-primary hover:bg-primary'>
+        <button className='hover:text-white font-medium text-lg bg-transparent w-full border border-primary rounded-lg py-3 text-primary hover:bg-primary transition-all cursor-pointer'>
           Sell
         </button>
       </form>

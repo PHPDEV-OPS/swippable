@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, CreditCard, Activity, ArrowLeftRight, Settings, LogOut, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { signOut } from 'next-auth/react';
+import { useClerk } from '@clerk/nextjs';
 
 const sidebarItems = [
     { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
@@ -18,13 +18,14 @@ const sidebarItems = [
 export function Sidebar() {
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
+    const { signOut } = useClerk();
 
     return (
         <>
             {/* Mobile Nav Toggle */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-primary text-background rounded-xl shadow-lg shadow-primary/20"
+                className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white rounded-xl shadow-lg shadow-purple-500/20"
             >
                 {isOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -41,7 +42,7 @@ export function Sidebar() {
                             alt="logo"
                             width={32}
                             height={32}
-                            className="w-8 h-8"
+                            className="w-8 h-8 [filter:hue-rotate(115deg)_saturate(1.2)]"
                         />
                         <span className="text-xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent uppercase tracking-tighter">Swippable</span>
                     </div>
@@ -58,7 +59,7 @@ export function Sidebar() {
                                     className={cn(
                                         "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300",
                                         isActive
-                                            ? "bg-primary text-background font-bold shadow-lg shadow-primary/20"
+                                            ? "bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white font-bold shadow-lg shadow-purple-500/20"
                                             : "text-white/40 hover:text-white hover:bg-white/5"
                                     )}
                                 >
@@ -73,7 +74,7 @@ export function Sidebar() {
                         <button
                             onClick={() => {
                                 setIsOpen(false);
-                                signOut({ callbackUrl: '/' });
+                                signOut({ redirectUrl: '/' });
                             }}
                             className="flex items-center gap-3 px-4 py-3 w-full text-white/40 hover:text-red-400 hover:bg-red-400/5 rounded-2xl transition-all duration-300 font-bold text-sm"
                         >

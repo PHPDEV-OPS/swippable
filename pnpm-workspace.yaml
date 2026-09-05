@@ -1,5 +1,5 @@
 allowBuilds:
-  better-sqlite3: true
+  '@sentry/cli': true
   bufferutil: true
   core-js: true
   keccak: true
