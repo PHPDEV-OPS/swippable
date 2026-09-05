@@ -4,6 +4,9 @@ import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageSquare, Sparkles, X, Send, Bot, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatMoney } from '@/lib/money'
+import { useCards, useDashboardSummary, useTransactions, useWallet } from '@/lib/client-api'
+import type { LedgerTransaction, VirtualCard } from '@/types/api'
 
 interface Message {
     id: string | number
@@ -18,11 +21,17 @@ export function AiChatButton() {
     const [isTyping, setIsTyping] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
+    // The assistant only ever quotes figures that came out of the database.
+    const wallet = useWallet('7D')
+    const cards = useCards()
+    const transactions = useTransactions()
+    const summary = useDashboardSummary('Month')
+
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 1,
             type: 'bot',
-            text: "Hello! I'm Swippable Agent Assistant. I can help you monitor transactions, check your virtual card balances, and track spending.",
+            text: "Hi! I'm the Swippable Assistant. Ask me about your wallet balance, cards, spending or recent payments - I read them straight from your account.",
             timestamp: 'Just now',
         },
     ])
@@ -61,32 +70,29 @@ export function AiChatButton() {
         if (!textToSend) setInputText('')
         setIsTyping(true)
 
-        // Realistic Swippable Agent responses
+        // Answers are composed from the live account state, never invented.
         setTimeout(() => {
-            const lower = text.toLowerCase()
-            let botReply = "I'm monitoring your Swippable account. You can manage your cards, send payments, or review spending limits anytime!"
-
-            if (lower.includes('balance')) {
-                botReply = 'Your current Total Balance is $9,810.00 USD across your active Swippable virtual cards.'
-            } else if (lower.includes('card') || lower.includes('virtual')) {
-                botReply = 'Your Swippable Virtual Card (•••• 3456) is Active with $4,850.00 remaining under your monthly limit. You can generate a new card in the Cards tab.'
-            } else if (lower.includes('payment') || lower.includes('transaction') || lower.includes('recent')) {
-                botReply = 'Your last transaction was an External Payment of +$250.00 via VISA on 02-12-24.'
-            } else if (lower.includes('limit') || lower.includes('spend')) {
-                botReply = 'You have utilized 3% of your $5,000 monthly spending limit. Healthcare and Education savings are on track!'
-            }
-
             setMessages((prev) => [
                 ...prev,
                 {
                     id: Date.now() + 1,
                     type: 'bot',
-                    text: botReply,
+                    text: answerFrom(text, {
+                        balance: wallet.data?.balance,
+                        unallocated: wallet.data?.unallocated,
+                        allocated: wallet.data?.allocatedToCards,
+                        currency: wallet.data?.currency ?? 'USD',
+                        cards: cards.data ?? [],
+                        transactions: transactions.data ?? [],
+                        spendThisMonth: summary.data?.totalExpense.value,
+                        incomeThisMonth: summary.data?.totalIncome.value,
+                        loading: wallet.isLoading || cards.isLoading || transactions.isLoading,
+                    }),
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 },
             ])
             setIsTyping(false)
-        }, 800)
+        }, 500)
     }
 
     return (
@@ -233,5 +239,88 @@ export function AiChatButton() {
                 )}
             </button>
         </div>
+    )
+}
+
+interface AccountContext {
+    balance?: string
+    unallocated?: string
+    allocated?: string
+    currency: string
+    cards: Array<Pick<VirtualCard, 'last4' | 'status' | 'cardSpendingLimit' | 'totalSpentByCard' | 'availableToSpend' | 'utilisation' | 'currency'>>
+    transactions: Array<Pick<LedgerTransaction, 'merchant' | 'amount' | 'currency' | 'type' | 'status' | 'createdAt'>>
+    spendThisMonth?: string
+    incomeThisMonth?: string
+    loading: boolean
+}
+
+/**
+ * Deterministic, data-grounded replies. If a figure has not loaded the
+ * assistant says so rather than guessing - it never states a number it cannot
+ * read from the account.
+ */
+function answerFrom(question: string, ctx: AccountContext): string {
+    const lower = question.toLowerCase()
+
+    if (ctx.loading) {
+        return 'One moment - I am still loading your account data.'
+    }
+
+    const money = (value: string | undefined) =>
+        value === undefined ? 'unavailable right now' : formatMoney(value, ctx.currency)
+
+    if (lower.includes('balance') || lower.includes('wallet') || lower.includes('how much')) {
+        if (ctx.balance === undefined) return 'I could not read your wallet balance just now.'
+        return (
+            `Your wallet balance is ${money(ctx.balance)}. ` +
+            `${money(ctx.allocated)} is allocated to cards and ${money(ctx.unallocated)} is unallocated.`
+        )
+    }
+
+    if (lower.includes('limit') || lower.includes('spend')) {
+        if (ctx.cards.length === 0) {
+            return `You have no cards yet, so nothing is allocated. You have spent ${money(ctx.spendThisMonth)} this month.`
+        }
+        const lines = ctx.cards
+            .map(
+                (card) =>
+                    `•••• ${card.last4}: ${formatMoney(card.totalSpentByCard, card.currency)} of ` +
+                    `${formatMoney(card.cardSpendingLimit, card.currency)} used (${Math.round(card.utilisation)}%)`
+            )
+            .join('; ')
+        return `Spend this month: ${money(ctx.spendThisMonth)}. Per card - ${lines}.`
+    }
+
+    if (lower.includes('card') || lower.includes('virtual')) {
+        if (ctx.cards.length === 0) {
+            return 'You have no virtual cards yet. Head to the Cards tab to issue one against your wallet balance.'
+        }
+        const active = ctx.cards.filter((card) => card.status === 'ACTIVE').length
+        const first = ctx.cards[0]
+        return (
+            `You have ${ctx.cards.length} card${ctx.cards.length === 1 ? '' : 's'} (${active} active). ` +
+            `Your most recent is •••• ${first.last4}, ${first.status.toLowerCase()}, with ` +
+            `${formatMoney(first.availableToSpend, first.currency)} still available.`
+        )
+    }
+
+    if (lower.includes('payment') || lower.includes('transaction') || lower.includes('recent')) {
+        const latest = ctx.transactions[0]
+        if (!latest) return 'You have no transactions yet. Fund your wallet to get started.'
+        const direction = latest.type === 'CREDIT' ? 'received' : 'spent'
+        return (
+            `Your latest transaction: ${formatMoney(latest.amount, latest.currency)} ${direction} ` +
+            `at ${latest.merchant} on ${new Date(latest.createdAt).toLocaleDateString()} ` +
+            `(${latest.status.toLowerCase()}).`
+        )
+    }
+
+    if (lower.includes('income') || lower.includes('deposit')) {
+        return `You have received ${money(ctx.incomeThisMonth)} this month.`
+    }
+
+    return (
+        `Your wallet balance is ${money(ctx.balance)} across ${ctx.cards.length} card` +
+        `${ctx.cards.length === 1 ? '' : 's'}. Ask me about your balance, cards, spending limits or recent payments.`
     )
 }

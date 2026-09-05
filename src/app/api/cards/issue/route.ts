@@ -1,22 +1,21 @@
 import { NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth'
 import { readJson, withRouteErrors } from '@/lib/http'
-import { getCardsByUserId } from '@/lib/db'
 import { issueCard } from '@/lib/cards'
-import { serializeCard } from '@/lib/serialize'
 import type { IssueCardRequest } from '@/types/api'
 
 export const dynamic = 'force-dynamic'
 
-/** Every virtual card belonging to the signed-in user. */
-export const GET = withRouteErrors('cards:list', async () => {
-    const user = await requireUser()
-    const rows = await getCardsByUserId(user.id)
-    return NextResponse.json(rows.map(serializeCard))
-})
-
-/** Convenience alias for `/api/cards/issue`, kept for the dashboard forms. */
-export const POST = withRouteErrors('cards:create', async (request: Request) => {
+/**
+ * Route A - card issuance.
+ *
+ * Authenticates via Clerk, verifies the wallet can cover the requested
+ * allocation, calls Flutterwave's virtual-card endpoint, then writes the card
+ * row with the returned provider id as `flutterwave_card_id` and the allocated
+ * amount as `card_spending_limit`. The balance check and the insert happen in
+ * one guarded statement, so concurrent requests cannot over-allocate.
+ */
+export const POST = withRouteErrors('cards:issue', async (request: Request) => {
     const user = await requireUser()
     const body = await readJson<IssueCardRequest>(request)
 

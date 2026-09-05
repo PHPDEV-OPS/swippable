@@ -1,34 +1,44 @@
 import { currentUser } from '@clerk/nextjs/server'
-import { findUserByEmail, insertUser, recordAppSession, touchAppSession } from '@/lib/db'
+import { findUserByClerkId, touchAppSession, upsertUser, type UserRow } from '@/lib/db'
 
-export async function getAuthenticatedUser() {
+/**
+ * Resolves the Clerk session to the local user row, creating the mirror row on
+ * first sight. Every authenticated API route funnels through here, so a request
+ * can only ever touch the rows belonging to its own Clerk identity.
+ */
+export async function getAuthenticatedUser(): Promise<UserRow | null> {
     const clerkUser = await currentUser()
-    const email = clerkUser?.emailAddresses[0]?.emailAddress
+    if (!clerkUser) return null
 
-    if (!clerkUser || !email) {
-        return null
-    }
+    const email = clerkUser.emailAddresses[0]?.emailAddress
+    if (!email) return null
 
-    let user = await findUserByEmail(email) as any
-    const isNewUser = !user
+    let user = await findUserByClerkId(clerkUser.id)
 
     if (!user) {
-        const result = await insertUser(
-            clerkUser.id,
-            clerkUser.firstName || clerkUser.username || 'User',
+        user = await upsertUser({
+            clerkUserId: clerkUser.id,
+            name: clerkUser.fullName || clerkUser.firstName || clerkUser.username || 'User',
             email,
-            null,
-            clerkUser.imageUrl,
-            'PENDING'
-        )
-        user = { id: result.lastInsertRowid, email }
+            image: clerkUser.imageUrl ?? null,
+        })
     }
 
-    if (isNewUser) {
-        await recordAppSession(clerkUser.id, user.id)
-    } else {
-        await touchAppSession(clerkUser.id, user.id)
-    }
+    await touchAppSession(clerkUser.id, user.id)
 
+    return user
+}
+
+/** Thrown by `requireUser` and mapped to a 401 by the route error handler. */
+export class UnauthorizedError extends Error {
+    constructor() {
+        super('Unauthorized')
+        this.name = 'UnauthorizedError'
+    }
+}
+
+export async function requireUser(): Promise<UserRow> {
+    const user = await getAuthenticatedUser()
+    if (!user) throw new UnauthorizedError()
     return user
 }

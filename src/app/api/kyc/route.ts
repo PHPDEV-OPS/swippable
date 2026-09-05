@@ -1,33 +1,45 @@
+import { currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import { getAuthenticatedUser } from '@/lib/auth'
-import { updateUserKycStatus } from '@/lib/db'
+import { requireUser } from '@/lib/auth'
+import { badRequest, readJson, withRouteErrors } from '@/lib/http'
+import { pushNotification, updateUserKycStatus } from '@/lib/db'
 
-export async function GET() {
-    const user = await getAuthenticatedUser()
-    if (!user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export const dynamic = 'force-dynamic'
+
+export const GET = withRouteErrors('kyc:get', async () => {
+    const user = await requireUser()
+    return NextResponse.json({ kyc_status: String(user.kyc_status ?? 'PENDING').toUpperCase() })
+})
+
+/**
+ * Email verification is owned by Clerk, so this endpoint reflects Clerk's
+ * actual verification state rather than granting it on request.
+ */
+export const POST = withRouteErrors('kyc:post', async (request: Request) => {
+    const user = await requireUser()
+    const { action } = await readJson<{ action?: string }>(request)
+
+    if (action !== 'verify_email') {
+        badRequest('Unsupported action', 'INVALID_ACTION')
     }
 
-    return NextResponse.json({ kyc_status: user.kyc_status || 'PENDING' })
-}
+    const clerkUser = await currentUser()
+    const primary = clerkUser?.emailAddresses.find((email) => email.id === clerkUser.primaryEmailAddressId)
+    const verified = primary?.verification?.status === 'verified'
 
-export async function POST(request: Request) {
-    const user = await getAuthenticatedUser()
-    if (!user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!verified) {
+        return NextResponse.json(
+            {
+                status: String(user.kyc_status ?? 'PENDING').toUpperCase(),
+                message:
+                    'Your email is not verified with Clerk yet. Verify it from your account menu, then check back here.',
+            },
+            { status: 409 }
+        )
     }
 
-    // Mock Email Verification Logic
-    // In a real app, this would trigger an email with a verification link.
-    // For this demo, we'll simulate the verification process being initiated or completed.
-    
-    const { action } = await request.json();
+    await updateUserKycStatus('VERIFIED', user.id)
+    await pushNotification(user.id, 'Identity verified', 'Your email address has been verified.', 'SUCCESS')
 
-    if (action === 'verify_email') {
-        // Simulate successful verification
-        await updateUserKycStatus('VERIFIED', user.id);
-        return NextResponse.json({ message: 'Email verified successfully', status: 'VERIFIED' });
-    }
-
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-}
+    return NextResponse.json({ message: 'Email verified', status: 'VERIFIED' })
+})

@@ -1,28 +1,20 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useUser } from '@clerk/nextjs'
-import { useAccount, useDisconnect } from 'wagmi'
+import { useAccount } from 'wagmi'
 import { useTheme } from 'next-themes'
 import {
-    Wallet as WalletIcon,
-    ArrowUpRight,
-    ArrowDownLeft,
     Copy,
     Check,
     QrCode,
     RefreshCw,
-    Send,
-    Plus,
+    Smartphone,
     CreditCard,
-    Sparkles,
     TrendingUp,
-    ExternalLink,
-    ShieldCheck,
     Coins,
     X,
-    SlidersHorizontal
+    AlertCircle,
 } from 'lucide-react'
 import {
     ResponsiveContainer,
@@ -34,192 +26,176 @@ import {
     CartesianGrid,
     PieChart,
     Pie,
-    Cell
+    Cell,
 } from 'recharts'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { formatMoney } from '@/lib/money'
+import {
+    ApiRequestError,
+    useCards,
+    useDeposit,
+    useFundCard,
+    useLinkWallet,
+    useSandboxTopUp,
+    useTransactions,
+    useWallet,
+} from '@/lib/client-api'
 
-interface WalletAsset {
-    symbol: string
-    name: string
-    balance: string
-    valueUsd: number
-    change24h: string
-    isPositive: boolean
-    icon: string
-    network: string
-    allocation: number
+type Timeframe = '7D' | '1M' | '1Y'
+
+const ASSET_COLORS = ['#7042f4', '#12b88f', '#f79e1b']
+
+function errorMessage(error: unknown, fallback: string) {
+    return error instanceof ApiRequestError ? error.message : fallback
 }
-
-const portfolioChartData = {
-    '7D': [
-        { date: 'Mon', value: 11200 },
-        { date: 'Tue', value: 11450 },
-        { date: 'Wed', value: 11300 },
-        { date: 'Thu', value: 11900 },
-        { date: 'Fri', value: 12100 },
-        { date: 'Sat', value: 12350 },
-        { date: 'Sun', value: 12450.80 },
-    ],
-    '1M': [
-        { date: 'Week 1', value: 10500 },
-        { date: 'Week 2', value: 10950 },
-        { date: 'Week 3', value: 11800 },
-        { date: 'Week 4', value: 12450.80 },
-    ],
-    '1Y': [
-        { date: 'Q1', value: 4200 },
-        { date: 'Q2', value: 7800 },
-        { date: 'Q3', value: 10200 },
-        { date: 'Q4', value: 12450.80 },
-    ]
-}
-
-const initialTransactions = [
-    { id: 'tx_1', type: 'Deposit', asset: 'USDC', amount: '+ 1,500.00', usd: '+$1,500.00', date: 'Today, 2:34 PM', status: 'Completed', hash: '0x8f2a...9c41' },
-    { id: 'tx_2', type: 'Card Top-up', asset: 'USDC', amount: '- 200.00', usd: '-$200.00', date: 'Yesterday', status: 'Completed', hash: '0x3c1b...7e90' },
-    { id: 'tx_3', type: 'Transfer', asset: 'ETH', amount: '- 0.05', usd: '-$135.50', date: 'Sep 01, 2024', status: 'Completed', hash: '0x1d4e...2a65' },
-    { id: 'tx_4', type: 'Deposit', asset: 'ETH', amount: '+ 0.50', usd: '+$1,350.00', date: 'Aug 28, 2024', status: 'Completed', hash: '0x7e8b...1f09' },
-    { id: 'tx_5', type: 'Card Payment', asset: 'USD', amount: '- 45.00', usd: '-$45.00', date: 'Aug 25, 2024', status: 'Completed', hash: 'Bridgecard' },
-]
 
 export function Wallet() {
-    const { user } = useUser()
     const { theme } = useTheme()
     const { address: wagmiAddress, isConnected } = useAccount()
+
     const [mounted, setMounted] = useState(false)
     const [copied, setCopied] = useState(false)
-    const [timeframe, setTimeframe] = useState<'7D' | '1M' | '1Y'>('7D')
-    const [dbWalletAddress, setDbWalletAddress] = useState<string | null>(null)
-    const [transactions, setTransactions] = useState(initialTransactions)
+    const [timeframe, setTimeframe] = useState<Timeframe>('7D')
 
-    // Modals
     const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false)
-    const [isSendModalOpen, setIsSendModalOpen] = useState(false)
+    const [isDepositModalOpen, setIsDepositModalOpen] = useState(false)
     const [isTopUpCardModalOpen, setIsTopUpCardModalOpen] = useState(false)
 
-    // Send Form
-    const [sendAsset, setSendAsset] = useState('USDC')
-    const [sendRecipient, setSendRecipient] = useState('')
-    const [sendAmount, setSendAmount] = useState('')
+    const [depositChannel, setDepositChannel] = useState<'MPESA' | 'CRYPTO'>('MPESA')
+    const [depositAmount, setDepositAmount] = useState('1000')
+    const [depositPhone, setDepositPhone] = useState('')
+    const [depositTxHash, setDepositTxHash] = useState('')
 
-    // Top up Form
+    const [topUpCardId, setTopUpCardId] = useState('')
     const [topUpAmount, setTopUpAmount] = useState('100')
 
-    useEffect(() => {
-        setMounted(true)
-        // Fetch saved wallet
-        fetch('/api/wallet')
-            .then((res) => res.ok ? res.json() : null)
-            .then((data) => {
-                if (data && data.base_account_address) {
-                    setDbWalletAddress(data.base_account_address)
-                }
-            })
-            .catch(() => undefined)
-    }, [])
+    const wallet = useWallet(timeframe)
+    const cardsQuery = useCards()
+    const transactionsQuery = useTransactions()
 
-    const activeAddress = wagmiAddress || dbWalletAddress || '0x71C2834c8348dEa24559eb41c0A9e83Ef473E4b9'
+    const deposit = useDeposit()
+    const fundCard = useFundCard()
+    const linkWallet = useLinkWallet()
+    const sandboxTopUp = useSandboxTopUp()
+
+    useEffect(() => setMounted(true), [])
+
+    const activeAddress = wagmiAddress ?? wallet.data?.onChainAddress ?? null
+
+    // Store a newly connected address so incoming USDC can be matched to this user.
+    useEffect(() => {
+        if (!isConnected || !wagmiAddress) return
+        if (wallet.data?.onChainAddress?.toLowerCase() === wagmiAddress.toLowerCase()) return
+        linkWallet.mutate(wagmiAddress)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isConnected, wagmiAddress, wallet.data?.onChainAddress])
+
+    const cards = cardsQuery.data ?? []
+
+    useEffect(() => {
+        if (!topUpCardId && cards.length > 0) setTopUpCardId(cards[0].cardId)
+    }, [cards, topUpCardId])
+
+    const currency = wallet.data?.currency ?? 'USD'
+    const balance = wallet.data?.balance ?? '0.00'
+
+    const seriesData = useMemo(
+        () =>
+            (wallet.data?.series ?? []).map((point) => ({
+                date: point.label,
+                value: Number(point.value),
+            })),
+        [wallet.data?.series]
+    )
+
+    const hasSeries = seriesData.some((point) => point.value !== 0)
+
+    const assets = wallet.data?.assets ?? []
+    const assetSlices = useMemo(
+        () => assets.map((asset) => ({ ...asset, numeric: Number(asset.valueUsd) })).filter((a) => a.numeric > 0),
+        [assets]
+    )
+
+    const walletTransactions = useMemo(
+        () => (transactionsQuery.data ?? []).filter((tx) => tx.channel !== 'CARD_TRANSACTION').slice(0, 8),
+        [transactionsQuery.data]
+    )
 
     const handleCopyAddress = () => {
-        if (typeof navigator !== 'undefined') {
-            navigator.clipboard.writeText(activeAddress)
-            setCopied(true)
-            toast.success('Address copied to clipboard!')
-            setTimeout(() => setCopied(false), 2000)
+        if (!activeAddress) {
+            toast.error('Connect a wallet first')
+            return
+        }
+        navigator.clipboard.writeText(activeAddress)
+        setCopied(true)
+        toast.success('Address copied to clipboard')
+        setTimeout(() => setCopied(false), 2000)
+    }
+
+    const handleDeposit = async (event: React.FormEvent) => {
+        event.preventDefault()
+
+        if (!depositAmount || Number(depositAmount) <= 0) {
+            toast.error('Enter an amount greater than zero')
+            return
+        }
+
+        try {
+            const result = await deposit.mutateAsync({
+                channel: depositChannel,
+                amount: depositAmount,
+                currency: depositChannel === 'MPESA' ? 'KES' : 'USD',
+                phone: depositChannel === 'MPESA' ? depositPhone : undefined,
+                txHash: depositChannel === 'CRYPTO' ? depositTxHash : undefined,
+                address: activeAddress ?? undefined,
+            })
+            setIsDepositModalOpen(false)
+            toast.success(result.message, { duration: 6000 })
+        } catch (error) {
+            toast.error(errorMessage(error, 'Could not start the deposit'), { duration: 6000 })
         }
     }
 
-    const assets: WalletAsset[] = [
-        {
-            symbol: 'USDC',
-            name: 'USD Coin',
-            balance: '8,250.00',
-            valueUsd: 8250.00,
-            change24h: '+0.01%',
-            isPositive: true,
-            icon: '🪙',
-            network: 'Base Mainnet',
-            allocation: 66.2
-        },
-        {
-            symbol: 'ETH',
-            name: 'Ethereum',
-            balance: '1.425',
-            valueUsd: 3850.80,
-            change24h: '+4.25%',
-            isPositive: true,
-            icon: '🔷',
-            network: 'Base Mainnet',
-            allocation: 30.9
-        },
-        {
-            symbol: 'CARDS',
-            name: 'Virtual Cards Balance',
-            balance: '350.00',
-            valueUsd: 350.00,
-            change24h: '+0.00%',
-            isPositive: true,
-            icon: '💳',
-            network: 'Swippable Issuing',
-            allocation: 2.9
-        }
-    ]
+    const handleTopUpCard = async (event: React.FormEvent) => {
+        event.preventDefault()
 
-    const handleSendCrypto = (e: React.FormEvent) => {
-        e.preventDefault()
-        const amt = parseFloat(sendAmount) || 0
-        if (!amt || !sendRecipient) return
-
-        const newTx = {
-            id: `tx_${Date.now()}`,
-            type: 'Transfer',
-            asset: sendAsset,
-            amount: `- ${amt.toFixed(sendAsset === 'ETH' ? 4 : 2)}`,
-            usd: `-$${(amt * (sendAsset === 'ETH' ? 2700 : 1)).toFixed(2)}`,
-            date: 'Just now',
-            status: 'Completed',
-            hash: '0x' + Math.random().toString(16).substring(2, 10) + '...'
+        if (!topUpCardId) {
+            toast.error('Issue a card first')
+            return
         }
-        setTransactions([newTx, ...transactions])
-        toast.success(`Successfully sent ${amt} ${sendAsset}!`)
-        setIsSendModalOpen(false)
-        setSendAmount('')
-        setSendRecipient('')
+        if (!topUpAmount || Number(topUpAmount) <= 0) {
+            toast.error('Enter an amount greater than zero')
+            return
+        }
+
+        try {
+            const result = await fundCard.mutateAsync({
+                cardId: topUpCardId,
+                amount: topUpAmount,
+                action: 'FUND',
+            })
+            setIsTopUpCardModalOpen(false)
+            toast.success(`${formatMoney(topUpAmount)} allocated to •••• ${result.card.last4}`)
+            if (result.warning) toast(result.warning, { icon: '⚠️', duration: 6000 })
+        } catch (error) {
+            toast.error(errorMessage(error, 'Could not fund the card'))
+        }
     }
 
-    const handleTopUpCard = (e: React.FormEvent) => {
-        e.preventDefault()
-        const amt = parseFloat(topUpAmount) || 0
-        if (!amt) return
-
-        const newTx = {
-            id: `tx_${Date.now()}`,
-            type: 'Card Top-up',
-            asset: 'USDC',
-            amount: `- ${amt.toFixed(2)}`,
-            usd: `-$${amt.toFixed(2)}`,
-            date: 'Just now',
-            status: 'Completed',
-            hash: 'Bridgecard'
-        }
-        setTransactions([newTx, ...transactions])
-        toast.success(`Loaded $${amt.toFixed(2)} onto your Swippable Card!`)
-        setIsTopUpCardModalOpen(false)
-    }
+    const isDev = process.env.NODE_ENV !== 'production'
 
     return (
         <div className="space-y-7 pb-16">
-            
-            {/* Header / Intro */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            {/* Header */}
+            <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1c1c24] dark:text-white tracking-tight mb-1">
-                        Wallet & Liquidity Hub
+                    <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-[#1c1c24] dark:text-white sm:text-3xl">
+                        Wallet &amp; Liquidity Hub
                     </h1>
-                    <p className="text-[#777984] dark:text-[#888a93] text-sm">
-                        Manage your Base on-chain assets, deposits, and virtual card funding
+                    <p className="text-sm text-[#777984] dark:text-[#888a93]">
+                        One shared balance funds every card you issue
                     </p>
                 </div>
 
@@ -229,80 +205,89 @@ export function Wallet() {
                         whileTap={{ scale: 0.97 }}
                         type="button"
                         onClick={() => setIsReceiveModalOpen(true)}
-                        className="flex items-center gap-2 rounded-2xl bg-white dark:bg-[#121214] border border-black/[0.05] dark:border-white/[0.08] px-4 py-2.5 text-xs font-bold text-[#1c1c24] dark:text-white shadow-sm hover:bg-[#f5f5f7] dark:hover:bg-white/5 transition-colors cursor-pointer"
+                        className="flex cursor-pointer items-center gap-2 rounded-2xl border border-black/[0.05] bg-white px-4 py-2.5 text-xs font-bold text-[#1c1c24] shadow-sm transition-colors hover:bg-[#f5f5f7] dark:border-white/[0.08] dark:bg-[#121214] dark:text-white dark:hover:bg-white/5"
                     >
                         <QrCode size={15} />
-                        <span>Deposit / Receive</span>
+                        <span>Receive</span>
                     </motion.button>
 
                     <motion.button
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
                         type="button"
-                        onClick={() => setIsSendModalOpen(true)}
-                        className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white px-5 py-2.5 text-xs font-bold shadow-md hover:opacity-95 transition-all cursor-pointer"
+                        onClick={() => setIsDepositModalOpen(true)}
+                        className="flex cursor-pointer items-center gap-2 rounded-2xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-5 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:opacity-95"
                     >
-                        <Send size={14} />
-                        <span>Send Crypto</span>
+                        <Coins size={14} />
+                        <span>Deposit Funds</span>
                     </motion.button>
                 </div>
             </div>
 
-            {/* Top Grid: Hero Wallet Card + 3 Metrics */}
+            {wallet.isError && (
+                <div className="flex items-center gap-2 rounded-2xl border border-[#ef5362]/20 bg-[#ffebeb] px-4 py-3 text-xs font-semibold text-[#ef5362] dark:bg-[#3c151a] dark:text-[#ff7a87]">
+                    <AlertCircle size={16} />
+                    <span>We could not load your wallet. Try refreshing.</span>
+                </div>
+            )}
+
+            {/* Hero + assets */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                
-                {/* Hero Wallet Card (5 cols) */}
                 <motion.div
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35 }}
-                    className="lg:col-span-5 flex flex-col"
+                    className="flex flex-col lg:col-span-5"
                 >
                     <div className="relative flex flex-1 flex-col justify-between overflow-hidden rounded-[28px] bg-gradient-to-br from-[#622fcf] via-[#7d48ea] to-[#12b88f] p-6 text-white shadow-[0_20px_42px_rgba(99,48,207,0.3)]">
-                        {/* Decorative gloss effect */}
                         <div className="pointer-events-none absolute -inset-full bg-[linear-gradient(115deg,transparent_30%,rgba(255,255,255,0.2)_48%,rgba(255,255,255,0.05)_55%,transparent_70%)] opacity-80" />
 
                         <div className="relative z-10">
-                            {/* Top row: Badge and network */}
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold backdrop-blur-md">
-                                    <span className="h-2 w-2 rounded-full bg-[#19c9a2] animate-pulse" />
-                                    <span>Base EVM Mainnet</span>
+                                    <span className="h-2 w-2 animate-pulse rounded-full bg-[#19c9a2]" />
+                                    <span>Swippable Core Wallet</span>
                                 </div>
-                                <span className="font-mono text-xs font-bold tracking-wider text-white/80 uppercase">
-                                    Swippable Vault
+                                <span className="font-mono text-xs font-bold uppercase tracking-wider text-white/80">
+                                    {currency}
                                 </span>
                             </div>
 
-                            {/* Balance */}
                             <div className="mt-6">
-                                <p className="text-xs font-semibold text-white/80 uppercase tracking-wider">
-                                    Total Portfolio Value
+                                <p className="text-xs font-semibold uppercase tracking-wider text-white/80">
+                                    Total Wallet Balance
                                 </p>
-                                <p className="mt-1 text-3xl sm:text-4xl font-black tracking-tight text-white drop-shadow-sm">
-                                    $12,450.80 <span className="text-xs font-bold text-white/80">USD</span>
+                                <p className="mt-1 text-3xl font-black tracking-tight text-white drop-shadow-sm sm:text-4xl">
+                                    {wallet.isLoading ? '—' : formatMoney(balance, currency)}
                                 </p>
-                                <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-white/20 px-2 py-0.5 text-xs font-bold text-white backdrop-blur-sm">
-                                    <TrendingUp size={13} />
-                                    <span>+18.4% this month</span>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    <Pill>
+                                        <TrendingUp size={13} />
+                                        {formatMoney(wallet.data?.totalDeposited ?? 0, currency)} deposited
+                                    </Pill>
+                                    <Pill>
+                                        <CreditCard size={13} />
+                                        {formatMoney(wallet.data?.allocatedToCards ?? 0, currency)} on cards
+                                    </Pill>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Bottom row: Address & Actions */}
-                        <div className="relative z-10 mt-6 pt-5 border-t border-white/20">
+                        <div className="relative z-10 mt-6 border-t border-white/20 pt-5">
                             <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-[10px] font-medium text-white/70">Wallet Address</p>
-                                    <p className="font-mono text-xs font-bold text-white">
-                                        {activeAddress.slice(0, 8)}...{activeAddress.slice(-6)}
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-medium text-white/70">On-chain address</p>
+                                    <p className="truncate font-mono text-xs font-bold text-white">
+                                        {activeAddress
+                                            ? `${activeAddress.slice(0, 8)}…${activeAddress.slice(-6)}`
+                                            : 'No wallet linked'}
                                     </p>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex shrink-0 gap-2">
                                     <button
                                         type="button"
                                         onClick={handleCopyAddress}
-                                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 transition-colors cursor-pointer text-white"
+                                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25"
                                         title="Copy wallet address"
                                     >
                                         {copied ? <Check size={16} /> : <Copy size={16} />}
@@ -310,10 +295,10 @@ export function Wallet() {
                                     <button
                                         type="button"
                                         onClick={() => setIsTopUpCardModalOpen(true)}
-                                        className="flex items-center gap-1.5 rounded-xl bg-white text-[#6330cf] px-3.5 py-2 text-xs font-bold shadow-md hover:bg-white/95 transition-all cursor-pointer"
+                                        className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-bold text-[#6330cf] shadow-md transition-all hover:bg-white/95"
                                     >
                                         <CreditCard size={14} />
-                                        <span>Top Up Card</span>
+                                        <span>Fund Card</span>
                                     </button>
                                 </div>
                             </div>
@@ -321,42 +306,42 @@ export function Wallet() {
                     </div>
                 </motion.div>
 
-                {/* 3 Stat Cards (7 cols) */}
-                <div className="lg:col-span-7 flex flex-col gap-4 sm:gap-5 justify-between">
-                    {assets.map((asset, idx) => (
+                <div className="flex flex-col justify-between gap-4 sm:gap-5 lg:col-span-7">
+                    {assets.map((asset, index) => (
                         <motion.div
                             key={asset.symbol}
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.35, delay: idx * 0.08 }}
+                            transition={{ duration: 0.35, delay: index * 0.08 }}
                             whileHover={{ y: -2 }}
                             className="flex items-center justify-between rounded-[24px] border border-black/[0.04] bg-white p-5 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none"
                         >
                             <div className="flex items-center gap-3.5">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f5f5f7] dark:bg-white/5 text-2xl shadow-sm">
-                                    {asset.icon}
+                                <div
+                                    className="flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-sm"
+                                    style={{ backgroundColor: ASSET_COLORS[index % ASSET_COLORS.length] }}
+                                >
+                                    {index === 0 ? <Coins size={20} /> : index === 1 ? <CreditCard size={20} /> : '₵'}
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h3 className="text-sm font-bold text-[#1c1c24] dark:text-white">
                                             {asset.name}
                                         </h3>
-                                        <span className="rounded-md bg-[#f0eaff] dark:bg-[#281b45] px-1.5 py-0.5 text-[9px] font-extrabold text-[#7042f4] dark:text-[#c4a8ff]">
+                                        <span className="rounded-md bg-[#f0eaff] px-1.5 py-0.5 text-[9px] font-extrabold text-[#7042f4] dark:bg-[#281b45] dark:text-[#c4a8ff]">
                                             {asset.symbol}
                                         </span>
                                     </div>
-                                    <p className="text-[11px] text-[#81858c] font-medium mt-0.5">
-                                        {asset.network} • {asset.allocation}% of Portfolio
+                                    <p className="mt-0.5 text-[11px] font-medium text-[#81858c]">
+                                        {asset.network}
+                                        {asset.allocation > 0 && ` • ${asset.allocation}% of wallet`}
                                     </p>
                                 </div>
                             </div>
 
                             <div className="text-right">
-                                <p className="text-base sm:text-lg font-extrabold text-[#1c1c24] dark:text-white">
-                                    ${asset.valueUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                </p>
-                                <p className="text-[11px] font-bold text-[#12b88f]">
-                                    {asset.balance} {asset.symbol}
+                                <p className="text-base font-extrabold text-[#1c1c24] dark:text-white sm:text-lg">
+                                    {formatMoney(asset.valueUsd, currency)}
                                 </p>
                             </div>
                         </motion.div>
@@ -364,54 +349,51 @@ export function Wallet() {
                 </div>
             </div>
 
-            {/* Middle Section: Recharts Portfolio Growth Chart & Asset Allocation */}
+            {/* Balance chart + allocation */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                
-                {/* Recharts AreaChart (8 cols) */}
                 <motion.div
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: 0.2 }}
-                    className="lg:col-span-8 rounded-[28px] border border-black/[0.04] bg-white p-6 sm:p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none"
+                    className="rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none lg:col-span-8 sm:p-7"
                 >
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                         <div>
                             <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
-                                Portfolio Balance Progression
+                                Balance Progression
                             </h2>
                             <p className="text-xs text-[#81858c]">
-                                On-chain valuation across all connected vaults
+                                Daily closing balance, reconstructed from your ledger
                             </p>
                         </div>
 
-                        {/* 7D, 1M, 1Y Toggle */}
                         <div className="flex items-center rounded-full bg-[#f5f5f7] p-1 dark:bg-white/[0.06]">
-                            {(['7D', '1M', '1Y'] as const).map((t) => (
+                            {(['7D', '1M', '1Y'] as const).map((option) => (
                                 <button
-                                    key={t}
+                                    key={option}
                                     type="button"
-                                    onClick={() => setTimeframe(t)}
+                                    onClick={() => setTimeframe(option)}
                                     className={cn(
-                                        'rounded-full px-3.5 py-1 text-[11px] font-bold transition-all cursor-pointer',
-                                        timeframe === t
+                                        'cursor-pointer rounded-full px-3.5 py-1 text-[11px] font-bold transition-all',
+                                        timeframe === option
                                             ? 'bg-[#19191b] text-white shadow-sm dark:bg-white dark:text-black'
                                             : 'text-[#81858c] hover:text-[#1c1c24] dark:hover:text-white'
                                     )}
                                 >
-                                    {t}
+                                    {option}
                                 </button>
                             ))}
                         </div>
                     </div>
 
                     <div className="h-[250px] w-full">
-                        {mounted && (
+                        {mounted && hasSeries ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={portfolioChartData[timeframe]}>
+                                <AreaChart data={seriesData}>
                                     <defs>
                                         <linearGradient id="walletGradient" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#7042f4" stopOpacity={0.35} />
-                                            <stop offset="95%" stopColor="#7042f4" stopOpacity={0.0} />
+                                            <stop offset="95%" stopColor="#7042f4" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid
@@ -425,24 +407,30 @@ export function Wallet() {
                                         tickLine={false}
                                         tick={{ fill: '#81858c', fontSize: 11, fontWeight: 600 }}
                                         dy={6}
+                                        minTickGap={20}
                                     />
                                     <YAxis
                                         domain={['auto', 'auto']}
                                         axisLine={false}
                                         tickLine={false}
                                         tick={{ fill: '#81858c', fontSize: 10, fontWeight: 600 }}
-                                        tickFormatter={(v) => `$${(v / 1000).toFixed(1)}K`}
+                                        tickFormatter={(value) =>
+                                            value >= 1000 ? `$${(value / 1000).toFixed(1)}K` : `$${value}`
+                                        }
                                     />
                                     <RechartsTooltip
                                         contentStyle={{
                                             background: theme === 'dark' ? '#18181b' : '#ffffff',
-                                            border: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)',
+                                            border:
+                                                theme === 'dark'
+                                                    ? '1px solid rgba(255,255,255,0.1)'
+                                                    : '1px solid rgba(0,0,0,0.08)',
                                             borderRadius: '16px',
                                             boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
                                             fontWeight: 'bold',
-                                            fontSize: '12px'
+                                            fontSize: '12px',
                                         }}
-                                        formatter={(val: any) => [`$${Number(val).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 'Balance']}
+                                        formatter={(value: any) => [formatMoney(String(value), currency), 'Balance']}
                                     />
                                     <Area
                                         type="monotone"
@@ -450,38 +438,43 @@ export function Wallet() {
                                         stroke="#7042f4"
                                         strokeWidth={3.5}
                                         fill="url(#walletGradient)"
-                                        dot={{ r: 4, fill: '#7042f4', strokeWidth: 0 }}
+                                        dot={false}
                                         activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
                                     />
                                 </AreaChart>
                             </ResponsiveContainer>
+                        ) : (
+                            <EmptyState
+                                message={
+                                    wallet.isLoading
+                                        ? 'Loading balance history…'
+                                        : 'Deposit funds to start building your balance history.'
+                                }
+                            />
                         )}
                     </div>
                 </motion.div>
 
-                {/* Asset Allocation Pie (4 cols) */}
                 <motion.div
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: 0.25 }}
-                    className="lg:col-span-4 flex flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 sm:p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none"
+                    className="flex flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none lg:col-span-4 sm:p-7"
                 >
                     <div>
                         <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
-                            Asset Allocation
+                            Liquidity Split
                         </h2>
-                        <p className="text-xs text-[#81858c]">
-                            Liquidity distribution
-                        </p>
+                        <p className="text-xs text-[#81858c]">Where your balance is currently sitting</p>
                     </div>
 
-                    <div className="h-[180px] w-full my-auto">
-                        {mounted && (
+                    <div className="my-auto h-[180px] w-full">
+                        {mounted && assetSlices.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
-                                        data={assets}
-                                        dataKey="valueUsd"
+                                        data={assetSlices}
+                                        dataKey="numeric"
                                         nameKey="name"
                                         cx="50%"
                                         cy="50%"
@@ -489,348 +482,404 @@ export function Wallet() {
                                         outerRadius={80}
                                         paddingAngle={4}
                                     >
-                                        <Cell fill="#7042f4" />
-                                        <Cell fill="#12b88f" />
-                                        <Cell fill="#f79e1b" />
+                                        {assetSlices.map((_, index) => (
+                                            <Cell key={index} fill={ASSET_COLORS[index % ASSET_COLORS.length]} />
+                                        ))}
                                     </Pie>
+                                    <RechartsTooltip
+                                        formatter={(value: any, name: any) => [
+                                            formatMoney(String(value), currency),
+                                            String(name),
+                                        ]}
+                                        contentStyle={{
+                                            background: theme === 'dark' ? '#18181b' : '#ffffff',
+                                            border:
+                                                theme === 'dark'
+                                                    ? '1px solid rgba(255,255,255,0.1)'
+                                                    : '1px solid rgba(0,0,0,0.08)',
+                                            borderRadius: '14px',
+                                            fontSize: '12px',
+                                            fontWeight: 600,
+                                        }}
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
+                        ) : (
+                            <EmptyState message={wallet.isLoading ? 'Loading…' : 'Nothing to allocate yet.'} />
                         )}
                     </div>
 
-                    <div className="space-y-2 pt-2 border-t border-black/[0.04] dark:border-white/[0.06]">
-                        {assets.map((a, i) => (
-                            <div key={a.symbol} className="flex items-center justify-between text-xs">
+                    <div className="space-y-2 border-t border-black/[0.04] pt-2 dark:border-white/[0.06]">
+                        {assets.map((asset, index) => (
+                            <div key={asset.symbol} className="flex items-center justify-between text-xs">
                                 <div className="flex items-center gap-2">
                                     <div
                                         className="h-2.5 w-2.5 rounded-full"
-                                        style={{ backgroundColor: i === 0 ? '#7042f4' : i === 1 ? '#12b88f' : '#f79e1b' }}
+                                        style={{ backgroundColor: ASSET_COLORS[index % ASSET_COLORS.length] }}
                                     />
-                                    <span className="font-semibold text-[#1c1c24] dark:text-white">{a.name}</span>
+                                    <span className="font-semibold text-[#1c1c24] dark:text-white">{asset.name}</span>
                                 </div>
-                                <span className="font-bold text-[#81858c]">{a.allocation}%</span>
+                                <span className="font-bold text-[#81858c]">
+                                    {formatMoney(asset.valueUsd, currency)}
+                                </span>
                             </div>
                         ))}
                     </div>
                 </motion.div>
             </div>
 
-            {/* Bottom Row: Wallet Transaction Activity */}
+            {/* Activity */}
             <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: 0.3 }}
-                className="rounded-[28px] border border-black/[0.04] bg-white p-6 sm:p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none"
+                className="rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none sm:p-7"
             >
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
                         <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
-                            On-Chain Activity & Vault History
+                            Deposits &amp; Card Funding
                         </h2>
                         <p className="text-xs text-[#81858c]">
-                            Recent deposits, card funding, and wallet transfers
+                            Money entering your wallet and moving onto your cards
                         </p>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() => toast.success('Transactions refreshed')}
-                        className="flex items-center gap-1.5 rounded-xl bg-[#f5f5f7] dark:bg-white/5 px-3 py-1.5 text-xs font-semibold text-[#777984] hover:text-[#1c1c24] dark:hover:text-white transition-colors cursor-pointer"
-                    >
-                        <RefreshCw size={13} />
-                        <span>Refresh</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {isDev && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    sandboxTopUp.mutate('500.00', {
+                                        onSuccess: (result) =>
+                                            toast.success(result.message ?? 'Sandbox credit applied'),
+                                        onError: (error) =>
+                                            toast.error(errorMessage(error, 'Sandbox credit failed')),
+                                    })
+                                }
+                                disabled={sandboxTopUp.isPending}
+                                className="cursor-pointer rounded-xl bg-[#f0eaff] px-3 py-1.5 text-xs font-semibold text-[#6330cf] transition-colors hover:opacity-90 disabled:opacity-60 dark:bg-[#281b45] dark:text-[#c4a8ff]"
+                                title="Development only: credit the wallet without a provider callback"
+                            >
+                                + $500 sandbox
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void wallet.refetch()
+                                void transactionsQuery.refetch()
+                                toast.success('Refreshed')
+                            }}
+                            className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#f5f5f7] px-3 py-1.5 text-xs font-semibold text-[#777984] transition-colors hover:text-[#1c1c24] dark:bg-white/5 dark:hover:text-white"
+                        >
+                            <RefreshCw size={13} />
+                            <span>Refresh</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
                         <thead>
-                            <tr className="border-b border-black/[0.04] dark:border-white/[0.06] text-[10px] font-bold uppercase tracking-wider text-[#9a9ca4]">
-                                <th className="pb-3.5">Action / Type</th>
-                                <th className="pb-3.5">Asset</th>
+                            <tr className="border-b border-black/[0.04] text-[10px] font-bold uppercase tracking-wider text-[#9a9ca4] dark:border-white/[0.06]">
+                                <th className="pb-3.5">Action</th>
+                                <th className="pb-3.5">Channel</th>
                                 <th className="pb-3.5">Date</th>
-                                <th className="pb-3.5">Tx Identifier</th>
+                                <th className="pb-3.5">Reference</th>
                                 <th className="pb-3.5">Status</th>
                                 <th className="pb-3.5 text-right">Amount</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-black/[0.03] dark:divide-white/[0.04]">
-                            {transactions.map((tx) => (
-                                <tr key={tx.id} className="hover:bg-[#fafafc] dark:hover:bg-white/[0.02] transition-colors">
+                            {walletTransactions.map((tx) => (
+                                <tr
+                                    key={tx.id}
+                                    className="transition-colors hover:bg-[#fafafc] dark:hover:bg-white/[0.02]"
+                                >
                                     <td className="py-4 font-bold text-[#1c1c24] dark:text-white">
                                         <div className="flex items-center gap-2.5">
-                                            <div className={cn(
-                                                'flex h-8 w-8 items-center justify-center rounded-xl text-xs shadow-sm',
-                                                tx.type === 'Deposit' && 'bg-[#e7faf4] text-[#12b88f] dark:bg-[#0b3c32]',
-                                                tx.type === 'Transfer' && 'bg-[#f0eaff] text-[#7042f4] dark:bg-[#281b45]',
-                                                tx.type === 'Card Top-up' && 'bg-[#fef7eb] text-[#f79e1b] dark:bg-[#38270b]',
-                                                tx.type === 'Card Payment' && 'bg-[#ffebeb] text-[#ef5362] dark:bg-[#3c151a]'
-                                            )}>
-                                                {tx.type === 'Deposit' ? '↓' : tx.type === 'Transfer' ? '↗' : '💳'}
+                                            <div
+                                                className={cn(
+                                                    'flex h-8 w-8 items-center justify-center rounded-xl text-xs shadow-sm',
+                                                    tx.type === 'CREDIT'
+                                                        ? 'bg-[#e7faf4] text-[#12b88f] dark:bg-[#0b3c32]'
+                                                        : 'bg-[#f0eaff] text-[#7042f4] dark:bg-[#281b45]'
+                                                )}
+                                            >
+                                                {tx.type === 'CREDIT' ? '↓' : '↗'}
                                             </div>
-                                            <span>{tx.type}</span>
+                                            <span>{tx.merchant}</span>
                                         </div>
                                     </td>
                                     <td className="py-4 font-semibold text-[#81858c]">
-                                        {tx.asset}
+                                        {tx.channel.replace('_', ' ')}
                                     </td>
                                     <td className="py-4 text-[#81858c]">
-                                        {tx.date}
+                                        {new Date(tx.createdAt).toLocaleDateString(undefined, {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                        })}
                                     </td>
                                     <td className="py-4 font-mono text-[11px] text-[#7042f4] dark:text-[#c4a8ff]">
-                                        {tx.hash}
+                                        {shortReference(tx.txId)}
                                     </td>
                                     <td className="py-4">
-                                        <span className="inline-flex items-center rounded-full bg-[#e7faf4] px-2.5 py-0.5 text-[9px] font-bold text-[#12b88f] dark:bg-[#0b3c32] dark:text-[#28d6aa]">
-                                            {tx.status}
+                                        <span
+                                            className={cn(
+                                                'inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold',
+                                                tx.status === 'SUCCESS' &&
+                                                    'bg-[#e7faf4] text-[#12b88f] dark:bg-[#0b3c32] dark:text-[#28d6aa]',
+                                                tx.status === 'PENDING' &&
+                                                    'bg-[#fef7eb] text-[#e9a72b] dark:bg-[#38270b] dark:text-[#f7b746]',
+                                                tx.status === 'FAILED' &&
+                                                    'bg-[#ffebeb] text-[#ef5362] dark:bg-[#3c151a] dark:text-[#ff7a87]'
+                                            )}
+                                        >
+                                            {tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}
                                         </span>
                                     </td>
                                     <td className="py-4 text-right font-extrabold text-[#1c1c24] dark:text-white">
-                                        {tx.amount}
+                                        {tx.type === 'CREDIT' ? '+ ' : '− '}
+                                        {formatMoney(tx.amount, tx.currency).replace('-', '')}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+
+                    {!transactionsQuery.isLoading && walletTransactions.length === 0 && (
+                        <p className="py-10 text-center text-xs text-[#81858c]">
+                            No wallet movements yet.{' '}
+                            <button
+                                type="button"
+                                onClick={() => setIsDepositModalOpen(true)}
+                                className="font-bold text-[#6330cf] dark:text-[#bca4ff]"
+                            >
+                                Make your first deposit
+                            </button>
+                            .
+                        </p>
+                    )}
                 </div>
             </motion.div>
 
-            {/* ===================== MODAL: Receive / Deposit QR ===================== */}
+            {/* Receive modal */}
             <AnimatePresence>
                 {isReceiveModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-                            onClick={() => setIsReceiveModalOpen(false)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.94, y: 15 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.94, y: 15 }}
-                            className="relative w-full max-w-sm rounded-[28px] border border-black/[0.08] bg-white p-6 shadow-2xl dark:border-white/[0.1] dark:bg-[#121214] text-[#1c1c24] dark:text-white z-10 text-center"
-                        >
-                            <div className="flex items-center justify-between pb-3 border-b border-black/[0.06] dark:border-white/[0.08]">
-                                <h3 className="text-base font-bold">Receive / Deposit</h3>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsReceiveModalOpen(false)}
-                                    className="rounded-full p-1 text-[#81858c] hover:bg-black/5 dark:hover:bg-white/10"
-                                >
-                                    <X size={18} />
-                                </button>
-                            </div>
+                    <Modal onClose={() => setIsReceiveModalOpen(false)} className="max-w-sm text-center">
+                        <div className="flex items-center justify-between border-b border-black/[0.06] pb-3 dark:border-white/[0.08]">
+                            <h3 className="text-base font-bold">Receive USDC</h3>
+                            <CloseButton onClick={() => setIsReceiveModalOpen(false)} />
+                        </div>
 
-                            {/* QR Code simulation */}
-                            <div className="my-6 flex justify-center">
-                                <div className="rounded-2xl border-2 border-black/[0.06] bg-white p-4 shadow-md dark:border-white/10">
-                                    <div className="h-44 w-44 bg-[radial-gradient(#19191b_2px,transparent_2px)] dark:bg-[radial-gradient(#111_2px,transparent_2px)] [background-size:12px_12px] flex items-center justify-center border border-dashed border-black/10 rounded-xl relative">
-                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#6330cf] to-[#12b88f] flex items-center justify-center text-white font-bold shadow-md">
-                                            S
-                                        </div>
+                        <div className="my-6 flex justify-center">
+                            <div className="rounded-2xl border-2 border-black/[0.06] bg-white p-4 shadow-md dark:border-white/10">
+                                <div className="relative flex h-44 w-44 items-center justify-center rounded-xl border border-dashed border-black/10 bg-[radial-gradient(#19191b_2px,transparent_2px)] [background-size:12px_12px]">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#6330cf] to-[#12b88f] font-bold text-white shadow-md">
+                                        S
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <p className="text-xs font-bold text-[#81858c] mb-1">Your Base Network Address</p>
-                            <p className="font-mono text-xs font-semibold bg-[#f5f5f7] dark:bg-white/5 p-2.5 rounded-xl break-all">
-                                {activeAddress}
-                            </p>
+                        <p className="mb-1 text-xs font-bold text-[#81858c]">Your Base network address</p>
+                        <p className="break-all rounded-xl bg-[#f5f5f7] p-2.5 font-mono text-xs font-semibold dark:bg-white/5">
+                            {activeAddress ?? 'Connect a wallet to generate a deposit address'}
+                        </p>
 
-                            <div className="mt-5 flex gap-3">
-                                <button
-                                    type="button"
-                                    onClick={handleCopyAddress}
-                                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white py-3 text-xs font-bold shadow-md hover:opacity-95"
-                                >
-                                    {copied ? <Check size={14} /> : <Copy size={14} />}
-                                    <span>{copied ? 'Copied' : 'Copy Address'}</span>
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
+                        <p className="mt-3 text-[11px] text-[#81858c]">
+                            After sending, declare the transfer under Deposit Funds so it is credited as soon as it
+                            confirms.
+                        </p>
+
+                        <div className="mt-5 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={handleCopyAddress}
+                                disabled={!activeAddress}
+                                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] py-3 text-xs font-bold text-white shadow-md hover:opacity-95 disabled:opacity-50"
+                            >
+                                {copied ? <Check size={14} /> : <Copy size={14} />}
+                                <span>{copied ? 'Copied' : 'Copy Address'}</span>
+                            </button>
+                        </div>
+                    </Modal>
                 )}
             </AnimatePresence>
 
-            {/* ===================== MODAL: Send Crypto ===================== */}
+            {/* Deposit modal */}
             <AnimatePresence>
-                {isSendModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-                            onClick={() => setIsSendModalOpen(false)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.94, y: 15 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.94, y: 15 }}
-                            className="relative w-full max-w-md rounded-[28px] border border-black/[0.08] bg-white p-6 shadow-2xl dark:border-white/[0.1] dark:bg-[#121214] text-[#1c1c24] dark:text-white z-10"
-                        >
-                            <div className="flex items-center justify-between pb-4 border-b border-black/[0.06] dark:border-white/[0.08]">
-                                <div>
-                                    <h3 className="text-base font-bold">Send Crypto</h3>
-                                    <p className="text-xs text-[#81858c]">Transfer assets on Base EVM</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsSendModalOpen(false)}
-                                    className="rounded-full p-1 text-[#81858c] hover:bg-black/5 dark:hover:bg-white/10"
-                                >
-                                    <X size={18} />
-                                </button>
+                {isDepositModalOpen && (
+                    <Modal onClose={() => setIsDepositModalOpen(false)}>
+                        <div className="flex items-center justify-between border-b border-black/[0.06] pb-4 dark:border-white/[0.08]">
+                            <div>
+                                <h3 className="text-base font-bold">Deposit Funds</h3>
+                                <p className="text-xs text-[#81858c]">Top up your shared wallet balance</p>
+                            </div>
+                            <CloseButton onClick={() => setIsDepositModalOpen(false)} />
+                        </div>
+
+                        <form onSubmit={handleDeposit} className="space-y-4 pt-4">
+                            <div className="grid grid-cols-2 gap-2">
+                                <ChannelButton
+                                    active={depositChannel === 'MPESA'}
+                                    onClick={() => setDepositChannel('MPESA')}
+                                    icon={<Smartphone size={15} />}
+                                    label="M-Pesa"
+                                />
+                                <ChannelButton
+                                    active={depositChannel === 'CRYPTO'}
+                                    onClick={() => setDepositChannel('CRYPTO')}
+                                    icon={<Coins size={15} />}
+                                    label="USDC on Base"
+                                />
                             </div>
 
-                            <form onSubmit={handleSendCrypto} className="space-y-4 pt-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-[#81858c] mb-1">Asset</label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {['USDC', 'ETH'].map((sym) => (
-                                            <button
-                                                key={sym}
-                                                type="button"
-                                                onClick={() => setSendAsset(sym)}
-                                                className={cn(
-                                                    'rounded-xl py-2.5 text-xs font-bold transition-all border',
-                                                    sendAsset === sym
-                                                        ? 'bg-[#19191b] text-white border-transparent dark:bg-white dark:text-black shadow-sm'
-                                                        : 'bg-[#f5f5f7] dark:bg-white/5 border-transparent text-[#777984]'
-                                                )}
-                                            >
-                                                {sym}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                            <div>
+                                <label className="mb-1 block text-xs font-bold text-[#81858c]">
+                                    Amount ({depositChannel === 'MPESA' ? 'KES' : 'USD'})
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    step="0.01"
+                                    value={depositAmount}
+                                    onChange={(event) => setDepositAmount(event.target.value)}
+                                    className="w-full rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-4 py-2.5 text-base font-bold outline-none focus:ring-2 focus:ring-[#7042f4] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                                    required
+                                />
+                                {depositChannel === 'MPESA' && (
+                                    <p className="mt-1 text-[10px] text-[#81858c]">
+                                        Converted to USD at the live rate when the payment confirms.
+                                    </p>
+                                )}
+                            </div>
 
+                            {depositChannel === 'MPESA' ? (
                                 <div>
-                                    <label className="block text-xs font-bold text-[#81858c] mb-1">Recipient Address</label>
+                                    <label className="mb-1 block text-xs font-bold text-[#81858c]">
+                                        M-Pesa phone number
+                                    </label>
                                     <input
-                                        type="text"
-                                        value={sendRecipient}
-                                        onChange={(e) => setSendRecipient(e.target.value)}
-                                        placeholder="0x... or ENS name"
+                                        type="tel"
+                                        value={depositPhone}
+                                        onChange={(event) => setDepositPhone(event.target.value)}
+                                        placeholder="07XX XXX XXX"
                                         className="w-full rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-4 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-[#7042f4] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                                         required
                                     />
+                                    <p className="mt-1 text-[10px] text-[#81858c]">
+                                        You will get an STK prompt on this phone. Your balance updates only once you
+                                        approve it.
+                                    </p>
                                 </div>
-
+                            ) : (
                                 <div>
-                                    <div className="flex justify-between items-center mb-1">
-                                        <label className="text-xs font-bold text-[#81858c]">Amount ({sendAsset})</label>
-                                        <button
-                                            type="button"
-                                            onClick={() => setSendAmount(sendAsset === 'USDC' ? '8250' : '1.42')}
-                                            className="text-[10px] font-bold text-[#7042f4] dark:text-[#c4a8ff]"
-                                        >
-                                            Max
-                                        </button>
-                                    </div>
+                                    <label className="mb-1 block text-xs font-bold text-[#81858c]">
+                                        Transaction hash
+                                    </label>
                                     <input
-                                        type="number"
-                                        step="any"
-                                        value={sendAmount}
-                                        onChange={(e) => setSendAmount(e.target.value)}
-                                        placeholder="0.00"
-                                        className="w-full rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-[#7042f4] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                                        type="text"
+                                        value={depositTxHash}
+                                        onChange={(event) => setDepositTxHash(event.target.value)}
+                                        placeholder="0x…"
+                                        className="w-full rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-4 py-2.5 font-mono text-xs outline-none focus:ring-2 focus:ring-[#7042f4] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                                         required
                                     />
+                                    <p className="mt-1 text-[10px] text-[#81858c]">
+                                        Credited once the transfer reaches the required confirmations on Base.
+                                    </p>
                                 </div>
+                            )}
 
-                                <div className="p-3 rounded-xl bg-[#fafafc] dark:bg-white/[0.03] text-[11px] text-[#81858c] flex justify-between items-center">
-                                    <span>Estimated Network Fee:</span>
-                                    <span className="font-bold text-[#12b88f]">~$0.01 (Base)</span>
-                                </div>
-
-                                <div className="flex gap-3 pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsSendModalOpen(false)}
-                                        className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-xs font-bold text-[#81858c] hover:bg-black/5 dark:border-white/[0.08] dark:hover:bg-white/5"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-1 rounded-xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white py-2.5 text-xs font-bold shadow-md hover:opacity-95 flex items-center justify-center gap-1.5"
-                                    >
-                                        <Send size={13} />
-                                        <span>Confirm Send</span>
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </div>
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDepositModalOpen(false)}
+                                    className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-xs font-bold text-[#81858c] hover:bg-black/5 dark:border-white/[0.08] dark:hover:bg-white/5"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={deposit.isPending}
+                                    className="flex-1 rounded-xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] py-2.5 text-xs font-bold text-white shadow-md hover:opacity-95 disabled:opacity-60"
+                                >
+                                    {deposit.isPending ? 'Starting…' : 'Deposit'}
+                                </button>
+                            </div>
+                        </form>
+                    </Modal>
                 )}
             </AnimatePresence>
 
-            {/* ===================== MODAL: Top Up Virtual Card ===================== */}
+            {/* Fund card modal */}
             <AnimatePresence>
                 {isTopUpCardModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-                            onClick={() => setIsTopUpCardModalOpen(false)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.94, y: 15 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.94, y: 15 }}
-                            className="relative w-full max-w-md rounded-[28px] border border-black/[0.08] bg-white p-6 shadow-2xl dark:border-white/[0.1] dark:bg-[#121214] text-[#1c1c24] dark:text-white z-10"
-                        >
-                            <div className="flex items-center justify-between pb-4 border-b border-black/[0.06] dark:border-white/[0.08]">
-                                <div>
-                                    <h3 className="text-base font-bold">Top Up Swippable Card</h3>
-                                    <p className="text-xs text-[#81858c]">Fund virtual card from USDC balance</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsTopUpCardModalOpen(false)}
-                                    className="rounded-full p-1 text-[#81858c] hover:bg-black/5 dark:hover:bg-white/10"
-                                >
-                                    <X size={18} />
-                                </button>
+                    <Modal onClose={() => setIsTopUpCardModalOpen(false)}>
+                        <div className="flex items-center justify-between border-b border-black/[0.06] pb-4 dark:border-white/[0.08]">
+                            <div>
+                                <h3 className="text-base font-bold">Fund a Virtual Card</h3>
+                                <p className="text-xs text-[#81858c]">
+                                    {formatMoney(wallet.data?.unallocated ?? 0, currency)} unallocated
+                                </p>
                             </div>
+                            <CloseButton onClick={() => setIsTopUpCardModalOpen(false)} />
+                        </div>
 
+                        {cards.length === 0 ? (
+                            <div className="space-y-4 py-8 text-center">
+                                <p className="text-xs text-[#81858c]">You do not have any cards yet.</p>
+                                <Link
+                                    href="/dashboard/cards"
+                                    className="inline-block rounded-xl bg-[#6330cf] px-5 py-2.5 text-xs font-bold text-white"
+                                >
+                                    Issue a card
+                                </Link>
+                            </div>
+                        ) : (
                             <form onSubmit={handleTopUpCard} className="space-y-4 pt-4">
-                                <div className="rounded-2xl bg-[#f0eaff] dark:bg-[#281b45] p-3.5 flex items-center justify-between text-xs text-[#6330cf] dark:text-[#c4a8ff]">
-                                    <div className="flex items-center gap-2">
-                                        <CreditCard size={18} />
-                                        <div>
-                                            <p className="font-bold">Virtual Mastercard (•••• 3456)</p>
-                                            <p className="text-[10px] opacity-80">Instant conversion at 1 USDC = 1 USD</p>
-                                        </div>
-                                    </div>
-                                    <span className="font-bold text-xs">Active</span>
+                                <div>
+                                    <label className="mb-1 block text-xs font-bold text-[#81858c]">Card</label>
+                                    <select
+                                        value={topUpCardId}
+                                        onChange={(event) => setTopUpCardId(event.target.value)}
+                                        className="w-full rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-4 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-[#7042f4] dark:border-white/[0.08] dark:bg-[#18181b] dark:text-white"
+                                    >
+                                        {cards.map((card) => (
+                                            <option key={card.cardId} value={card.cardId}>
+                                                •••• {card.last4} — {formatMoney(card.availableToSpend, card.currency)}{' '}
+                                                available
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-[#81858c] mb-1">Amount ($ USD)</label>
+                                    <label className="mb-1 block text-xs font-bold text-[#81858c]">Amount (USD)</label>
                                     <input
                                         type="number"
+                                        min="1"
+                                        step="0.01"
                                         value={topUpAmount}
-                                        onChange={(e) => setTopUpAmount(e.target.value)}
+                                        onChange={(event) => setTopUpAmount(event.target.value)}
                                         className="w-full rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-4 py-2.5 text-base font-bold outline-none focus:ring-2 focus:ring-[#7042f4] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                                         required
                                     />
                                 </div>
 
                                 <div className="flex gap-2">
-                                    {['50', '100', '250', '500'].map((amt) => (
+                                    {['50', '100', '250', '500'].map((amount) => (
                                         <button
-                                            key={amt}
+                                            key={amount}
                                             type="button"
-                                            onClick={() => setTopUpAmount(amt)}
-                                            className="flex-1 rounded-lg bg-[#f5f5f7] dark:bg-white/5 py-1.5 text-xs font-bold text-[#777984] hover:text-[#1c1c24] dark:hover:text-white"
+                                            onClick={() => setTopUpAmount(amount)}
+                                            className="flex-1 rounded-lg bg-[#f5f5f7] py-1.5 text-xs font-bold text-[#777984] hover:text-[#1c1c24] dark:bg-white/5 dark:hover:text-white"
                                         >
-                                            ${amt}
+                                            ${amount}
                                         </button>
                                     ))}
                                 </div>
@@ -845,16 +894,112 @@ export function Wallet() {
                                     </button>
                                     <button
                                         type="submit"
-                                        className="flex-1 rounded-xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white py-2.5 text-xs font-bold shadow-md hover:opacity-95"
+                                        disabled={fundCard.isPending}
+                                        className="flex-1 rounded-xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] py-2.5 text-xs font-bold text-white shadow-md hover:opacity-95 disabled:opacity-60"
                                     >
-                                        Top Up Card
+                                        {fundCard.isPending ? 'Funding…' : 'Fund Card'}
                                     </button>
                                 </div>
                             </form>
-                        </motion.div>
-                    </div>
+                        )}
+                    </Modal>
                 )}
             </AnimatePresence>
         </div>
     )
+}
+
+function Pill({ children }: { children: React.ReactNode }) {
+    return (
+        <span className="inline-flex items-center gap-1 rounded-md bg-white/20 px-2 py-0.5 text-xs font-bold text-white backdrop-blur-sm">
+            {children}
+        </span>
+    )
+}
+
+function ChannelButton({
+    active,
+    onClick,
+    icon,
+    label,
+}: {
+    active: boolean
+    onClick: () => void
+    icon: React.ReactNode
+    label: string
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={cn(
+                'flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold transition-all',
+                active
+                    ? 'border-transparent bg-[#19191b] text-white shadow-sm dark:bg-white dark:text-black'
+                    : 'border-transparent bg-[#f5f5f7] text-[#777984] dark:bg-white/5'
+            )}
+        >
+            {icon}
+            {label}
+        </button>
+    )
+}
+
+function CloseButton({ onClick }: { onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="rounded-full p-1 text-[#81858c] hover:bg-black/5 dark:hover:bg-white/10"
+        >
+            <X size={18} />
+        </button>
+    )
+}
+
+function Modal({
+    children,
+    onClose,
+    className,
+}: {
+    children: React.ReactNode
+    onClose: () => void
+    className?: string
+}) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={onClose}
+            />
+            <motion.div
+                initial={{ opacity: 0, scale: 0.94, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.94, y: 15 }}
+                className={cn(
+                    'relative z-10 w-full max-w-md rounded-[28px] border border-black/[0.08] bg-white p-6 text-[#1c1c24] shadow-2xl dark:border-white/[0.1] dark:bg-[#121214] dark:text-white',
+                    className
+                )}
+            >
+                {children}
+            </motion.div>
+        </div>
+    )
+}
+
+function EmptyState({ message }: { message: string }) {
+    return (
+        <div className="flex h-full w-full items-center justify-center rounded-2xl border border-dashed border-black/[0.06] dark:border-white/[0.08]">
+            <p className="px-6 text-center text-xs font-medium text-[#9a9ca4]">{message}</p>
+        </div>
+    )
+}
+
+/** Shortens internal ids and on-chain hashes for the reference column. */
+function shortReference(txId: string): string {
+    if (txId.length <= 16) return txId
+    return `${txId.slice(0, 8)}…${txId.slice(-6)}`
 }
