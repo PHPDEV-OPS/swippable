@@ -1,21 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 112" width="480" height="112" role="img" aria-label="Swippable">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 96" width="330" height="96" role="img" aria-label="Swippable">
   <title>Swippable</title>
 
-  <!-- Mark: stacked isometric layers, lightest at the back. -->
-  <g transform="translate(4 19) scale(1.15)">
-    <polygon points="32,25 61,39 32,53 3,39" fill="#a98bc4" />
-    <polygon points="32,15.5 61,29.5 32,43.5 3,29.5" fill="#6b3fa0" />
-    <polygon points="32,6 61,20 32,34 3,20" fill="#3d0a72" />
+  <g transform="translate(2 17) scale(0.95)">
+    <polygon points="32,25 61,39 32,53 3,39" fill="#b9a4f7" />
+    <polygon points="32,15.5 61,29.5 32,43.5 3,29.5" fill="#7042f4" />
+    <polygon points="32,6 61,20 32,34 3,20" fill="#4a1fa8" />
   </g>
 
-  <!-- Wordmark. Serif stack rather than outlined paths so the file stays small
-       and editable; every listed face ships on the platforms we target. -->
   <text
-    x="104"
-    y="79"
+    x="72"
+    y="66"
     font-family="Georgia, 'Times New Roman', 'Liberation Serif', serif"
-    font-size="66"
-    letter-spacing="-0.5"
-    fill="#4a0e78"
+    font-size="54"
+    letter-spacing="-0.8"
+    fill="#6330cf"
   >Swippable</text>
 </svg>

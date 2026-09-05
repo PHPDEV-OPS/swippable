@@ -37,9 +37,9 @@ export function BrandLoader({ label, variant = 'page', className }: BrandLoaderP
                 role="img"
                 aria-label="Swippable"
             >
-                <polygon points="32,25 61,39 32,53 3,39" fill="#a98bc4" />
-                <polygon points="32,15.5 61,29.5 32,43.5 3,29.5" fill="#6b3fa0" />
-                <polygon points="32,6 61,20 32,34 3,20" fill="#3d0a72" />
+                <polygon points="32,25 61,39 32,53 3,39" fill="#b9a4f7" />
+                <polygon points="32,15.5 61,29.5 32,43.5 3,29.5" fill="#7042f4" />
+                <polygon points="32,6 61,20 32,34 3,20" fill="#4a1fa8" />
             </svg>
 
             {/* Dash-and-dot line. */}
@@ -47,12 +47,12 @@ export function BrandLoader({ label, variant = 'page', className }: BrandLoaderP
                 {SEGMENTS.map((segment, index) => (
                     <React.Fragment key={index}>
                         <span
-                            className="block h-[5px] origin-left rounded-full bg-[var(--swippable-loader,#6b3fa0)] animate-[swippable-dash_1.25s_ease-in-out_infinite]"
+                            className="block h-[5px] origin-left rounded-full bg-[var(--swippable-loader,#7042f4)] animate-[swippable-dash_1.25s_ease-in-out_infinite]"
                             style={{ width: segment.width, animationDelay: `${index * 0.16}s` }}
                         />
                         {segment.dot && (
                             <span
-                                className="block h-[5px] w-[5px] rounded-full bg-[var(--swippable-loader,#6b3fa0)] animate-[swippable-dot_1.25s_ease-in-out_infinite]"
+                                className="block h-[5px] w-[5px] rounded-full bg-[var(--swippable-loader,#7042f4)] animate-[swippable-dot_1.25s_ease-in-out_infinite]"
                                 style={{ animationDelay: `${index * 0.16 + 0.08}s` }}
                             />
                         )}

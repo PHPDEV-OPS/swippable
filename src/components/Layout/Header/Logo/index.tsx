@@ -3,15 +3,14 @@ import Link from "next/link";
 
 const Logo: React.FC = () => {
   return (
-    <Link href="/">
+    <Link href="/" aria-label="Swippable home">
       <Image
         src="/images/logo/logo.svg"
-        alt="logo"
-        width={480}
-        height={112}
-        className="w-[480px] h-[112px]"
-        style={{ width: "auto", height: "auto", maxWidth: "480px", maxHeight: "112px" }}
-        quality={100}
+        alt="Swippable"
+        width={330}
+        height={96}
+        priority
+        className="h-9 w-auto sm:h-10"
       />
     </Link>
   );
