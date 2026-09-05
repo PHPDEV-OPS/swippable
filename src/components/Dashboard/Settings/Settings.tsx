@@ -5,27 +5,24 @@ import { motion } from 'framer-motion'
 import React, { useState, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
 import toast from 'react-hot-toast'
+import { formatMoney } from '@/lib/money'
+import { ApiRequestError, useCards, useLinkWallet, useMe, useWallet } from '@/lib/client-api'
 
 export function Settings() {
     const { user } = useUser()
+    const me = useMe()
+    const cards = useCards()
     const [activeTab, setActiveTab] = useState('Profile')
     const [kycStatus, setKycStatus] = useState('PENDING')
     const [loadingKyc, setLoadingKyc] = useState(false)
 
     useEffect(() => {
-        const fetchKycStatus = async () => {
-            try {
-                const res = await fetch('/api/kyc')
-                if (res.ok) {
-                    const data = await res.json()
-                    setKycStatus(data.kyc_status)
-                }
-            } catch (error) {
-                console.error('Error fetching KYC status:', error)
-            }
-        }
-        fetchKycStatus()
-    }, [])
+        if (me.data?.kycStatus) setKycStatus(me.data.kycStatus)
+    }, [me.data?.kycStatus])
+
+    const displayName = me.data?.name ?? user?.fullName ?? ''
+    const displayEmail = me.data?.email ?? user?.primaryEmailAddress?.emailAddress ?? ''
+    const activeCards = (cards.data ?? []).filter((card) => card.status === 'ACTIVE').length
 
     const handleVerifyEmail = async () => {
         setLoadingKyc(true)
@@ -35,10 +32,14 @@ export function Settings() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'verify_email' })
             })
+            const data = await res.json().catch(() => null)
             if (res.ok) {
-                const data = await res.json()
-                setKycStatus(data.status)
+                setKycStatus(data?.status ?? 'VERIFIED')
+                await me.refetch()
                 toast.success('Email verified successfully!')
+            } else {
+                // Clerk owns verification, so surface exactly why it was refused.
+                toast.error(data?.message ?? data?.error ?? 'Failed to verify email', { duration: 6000 })
             }
         } catch (error) {
             console.error('Error verifying email:', error)
@@ -104,7 +105,7 @@ export function Settings() {
                                     <div className='relative group'>
                                         <div className='w-24 h-24 rounded-full border-4 border-[#f5f5f7] dark:border-white/10 overflow-hidden ring-4 ring-[#7042f4]/20 shadow-md'>
                                             <img
-                                                src={user?.imageUrl || 'https://i.pravatar.cc/300'}
+                                                src={me.data?.imageUrl || user?.imageUrl || ''}
                                                 alt='profile'
                                                 className='w-full h-full object-cover'
                                             />
@@ -112,10 +113,10 @@ export function Settings() {
                                     </div>
                                     <div className='text-center sm:text-left'>
                                         <h3 className='text-xl font-bold text-[#1c1c24] dark:text-white mb-1'>
-                                            {user?.fullName || 'SK Sumon Hossen'}
+                                            {displayName || '—'}
                                         </h3>
                                         <p className='text-[#777984] dark:text-[#888a93] text-xs font-semibold'>
-                                            {user?.primaryEmailAddress?.emailAddress || 'user@example.com'}
+                                            {displayEmail || '—'}
                                         </p>
                                         <div className='mt-3 flex gap-2 justify-center sm:justify-start items-center'>
                                             {kycStatus === 'VERIFIED' ? (
@@ -133,7 +134,7 @@ export function Settings() {
                                                 </button>
                                             )}
                                             <span className='px-3 py-1 bg-[#f0eaff] text-[#7042f4] dark:bg-[#281b45] dark:text-[#c4a8ff] text-[10px] font-bold rounded-full'>
-                                                Platinum Cardholder
+                                                {activeCards} active card{activeCards === 1 ? '' : 's'}
                                             </span>
                                         </div>
                                     </div>
@@ -146,7 +147,8 @@ export function Settings() {
                                         </label>
                                         <input
                                             type="text"
-                                            defaultValue={user?.fullName || 'SK Sumon Hossen'}
+                                            key={displayName}
+                                            defaultValue={displayName}
                                             className='w-full bg-[#f5f5f7] dark:bg-white/5 border border-black/[0.05] dark:border-white/[0.08] rounded-xl px-4 py-3 text-[#1c1c24] dark:text-white text-xs font-semibold outline-none focus:ring-2 focus:ring-[#7042f4]'
                                         />
                                     </div>
@@ -156,7 +158,9 @@ export function Settings() {
                                         </label>
                                         <input
                                             type="email"
-                                            defaultValue={user?.primaryEmailAddress?.emailAddress || 'user@example.com'}
+                                            key={displayEmail}
+                                            defaultValue={displayEmail}
+                                            readOnly
                                             className='w-full bg-[#f5f5f7] dark:bg-white/5 border border-black/[0.05] dark:border-white/[0.08] rounded-xl px-4 py-3 text-[#1c1c24] dark:text-white text-xs font-semibold outline-none focus:ring-2 focus:ring-[#7042f4]'
                                         />
                                     </div>
@@ -166,7 +170,9 @@ export function Settings() {
                                         </label>
                                         <input
                                             type="text"
-                                            defaultValue="+1 (555) 234-5678"
+                                            key={user?.primaryPhoneNumber?.phoneNumber ?? 'none'}
+                                            defaultValue={user?.primaryPhoneNumber?.phoneNumber ?? ''}
+                                            placeholder="Add a phone number in your Clerk profile"
                                             className='w-full bg-[#f5f5f7] dark:bg-white/5 border border-black/[0.05] dark:border-white/[0.08] rounded-xl px-4 py-3 text-[#1c1c24] dark:text-white text-xs font-semibold outline-none focus:ring-2 focus:ring-[#7042f4]'
                                         />
                                     </div>
@@ -271,74 +277,84 @@ export function Settings() {
 }
 
 function WalletSettings() {
-    const [walletAddress, setWalletAddress] = useState('')
-    const [loading, setLoading] = useState(true)
-    const [saving, setSaving] = useState(false)
+    const wallet = useWallet('7D')
+    const cards = useCards()
+    const linkWallet = useLinkWallet()
 
+    const [walletAddress, setWalletAddress] = useState('')
+
+    // Seed the input from the stored address once it arrives.
     useEffect(() => {
-        fetch('/api/wallet')
-            .then(res => res.json())
-            .then(data => {
-                if (data && data.base_account_address) {
-                    setWalletAddress(data.base_account_address)
-                }
-            })
-            .catch(err => console.error(err))
-            .finally(() => setLoading(false))
-    }, [])
+        if (wallet.data?.onChainAddress) setWalletAddress(wallet.data.onChainAddress)
+    }, [wallet.data?.onChainAddress])
 
     const handleSave = async () => {
-        setSaving(true)
         try {
-            const res = await fetch('/api/wallet', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ address: walletAddress })
-            })
-            if (res.ok) {
-                toast.success('Wallet connected successfully!')
-            } else {
-                toast.error('Failed to connect wallet')
-            }
-        } catch {
-            toast.error('Error connecting wallet')
-        } finally {
-            setSaving(false)
+            await linkWallet.mutateAsync(walletAddress.trim())
+            toast.success('Wallet linked successfully')
+        } catch (error) {
+            toast.error(error instanceof ApiRequestError ? error.message : 'Could not link the wallet')
         }
     }
 
+    const summary = [
+        { label: 'Wallet balance', value: formatMoney(wallet.data?.balance ?? 0, wallet.data?.currency) },
+        { label: 'Allocated to cards', value: formatMoney(wallet.data?.allocatedToCards ?? 0, wallet.data?.currency) },
+        { label: 'Unallocated', value: formatMoney(wallet.data?.unallocated ?? 0, wallet.data?.currency) },
+        { label: 'Lifetime deposits', value: formatMoney(wallet.data?.totalDeposited ?? 0, wallet.data?.currency) },
+        { label: 'Lifetime card spend', value: formatMoney(wallet.data?.totalSpent ?? 0, wallet.data?.currency) },
+        { label: 'Cards issued', value: String((cards.data ?? []).length) },
+    ]
+
     return (
         <div className='space-y-6'>
-            <div className='flex items-center justify-between p-5 bg-[#fafafc] dark:bg-white/[0.03] rounded-2xl border border-black/[0.04] dark:border-white/[0.05]'>
+            {/* Live account figures, straight from the ledger */}
+            <div className='grid grid-cols-2 gap-3 sm:grid-cols-3'>
+                {summary.map((item) => (
+                    <div
+                        key={item.label}
+                        className='rounded-2xl border border-black/[0.04] bg-[#fafafc] p-4 dark:border-white/[0.05] dark:bg-white/[0.03]'
+                    >
+                        <p className='text-[10px] font-bold uppercase tracking-wider text-[#9a9ca4]'>{item.label}</p>
+                        <p className='mt-1 text-sm font-extrabold text-[#1c1c24] dark:text-white'>
+                            {wallet.isLoading ? '—' : item.value}
+                        </p>
+                    </div>
+                ))}
+            </div>
+
+            <div className='flex items-center justify-between rounded-2xl border border-black/[0.04] bg-[#fafafc] p-5 dark:border-white/[0.05] dark:bg-white/[0.03]'>
                 <div className='flex items-center gap-3.5'>
-                    <div className='w-11 h-11 bg-[#f0eaff] text-[#7042f4] dark:bg-[#281b45] dark:text-[#c4a8ff] rounded-xl flex items-center justify-center shadow-sm'>
+                    <div className='flex h-11 w-11 items-center justify-center rounded-xl bg-[#f0eaff] text-[#7042f4] shadow-sm dark:bg-[#281b45] dark:text-[#c4a8ff]'>
                         <Icon icon='solar:wallet-linear' width='22' height='22' />
                     </div>
                     <div>
-                        <h4 className='text-sm font-bold text-[#1c1c24] dark:text-white'>Base EVM Funding Account</h4>
-                        <p className='text-xs text-[#777984] dark:text-[#888a93]'>Connect funding wallet to power your virtual card balances</p>
+                        <h4 className='text-sm font-bold text-[#1c1c24] dark:text-white'>Base EVM Deposit Account</h4>
+                        <p className='text-xs text-[#777984] dark:text-[#888a93]'>
+                            USDC sent to this address is credited to your wallet automatically
+                        </p>
                     </div>
                 </div>
             </div>
 
             <div className='space-y-3'>
-                <label className='text-[#777984] dark:text-[#888a93] text-xs font-bold uppercase tracking-wider ml-1'>
+                <label className='ml-1 text-xs font-bold uppercase tracking-wider text-[#777984] dark:text-[#888a93]'>
                     Wallet Address (Base Network)
                 </label>
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <input 
-                        type="text" 
+                <div className='flex flex-col gap-3 sm:flex-row'>
+                    <input
+                        type='text'
                         value={walletAddress}
-                        onChange={(e) => setWalletAddress(e.target.value)}
-                        placeholder="0x..." 
-                        className='flex-1 bg-[#f5f5f7] dark:bg-white/5 border border-black/[0.05] dark:border-white/[0.08] rounded-xl px-4 py-3 text-xs text-[#1c1c24] dark:text-white font-mono outline-none focus:ring-2 focus:ring-[#7042f4]' 
+                        onChange={(event) => setWalletAddress(event.target.value)}
+                        placeholder='0x...'
+                        className='flex-1 rounded-xl border border-black/[0.05] bg-[#f5f5f7] px-4 py-3 font-mono text-xs text-[#1c1c24] outline-none focus:ring-2 focus:ring-[#7042f4] dark:border-white/[0.08] dark:bg-white/5 dark:text-white'
                     />
-                    <button 
+                    <button
                         onClick={handleSave}
-                        disabled={saving || loading}
-                        className='px-6 py-3 bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white rounded-xl font-bold text-xs shadow-md hover:opacity-90 transition-all disabled:opacity-50'
+                        disabled={linkWallet.isPending || wallet.isLoading}
+                        className='rounded-xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-6 py-3 text-xs font-bold text-white shadow-md transition-all hover:opacity-90 disabled:opacity-50'
                     >
-                        {saving ? 'Saving...' : 'Connect'}
+                        {linkWallet.isPending ? 'Saving...' : 'Connect'}
                     </button>
                 </div>
             </div>

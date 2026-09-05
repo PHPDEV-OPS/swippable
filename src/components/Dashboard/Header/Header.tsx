@@ -24,6 +24,7 @@ import {
     Check
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useMarkNotificationsRead, useNotifications } from '@/lib/client-api'
 
 export function DashboardHeader() {
     const pathname = usePathname()
@@ -31,7 +32,11 @@ export function DashboardHeader() {
     const [mounted, setMounted] = useState(false)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
     const [showNotifications, setShowNotifications] = useState(false)
-    const [notificationsRead, setNotificationsRead] = useState(false)
+
+    const notifications = useNotifications()
+    const markRead = useMarkNotificationsRead()
+
+    const unreadCount = (notifications.data ?? []).filter((item) => !item.read).length
 
     useEffect(() => {
         setMounted(true)
@@ -52,11 +57,6 @@ export function DashboardHeader() {
         { name: 'Setting', href: '/dashboard/settings', icon: Settings, exact: false },
     ]
 
-    const notificationsList = [
-        { id: 1, title: 'Card Approved', desc: 'Virtual Card •••• 3456 is now active.', time: '10m ago' },
-        { id: 2, title: 'Payment Received', desc: '+$250.00 from External Account.', time: '2h ago' },
-        { id: 3, title: 'Security Alert', desc: 'New login detected from Chrome on Windows.', time: '1d ago' },
-    ]
 
     const isActive = (href: string, exact: boolean) => {
         if (exact) return pathname === href
@@ -169,14 +169,17 @@ export function DashboardHeader() {
                             type="button"
                             aria-label="Notifications"
                             onClick={() => {
-                                setShowNotifications(!showNotifications)
-                                setNotificationsRead(true)
+                                const next = !showNotifications
+                                setShowNotifications(next)
+                                if (next && unreadCount > 0) markRead.mutate()
                             }}
                             className="relative flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl text-[#777984] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-black/[0.04] dark:border-white/[0.08] transition-all hover:scale-105 active:scale-95 hover:text-[#1c1c24] dark:text-[#8c8e98] dark:hover:text-white cursor-pointer"
                         >
                             <Bell size={17} />
-                            {!notificationsRead && (
-                                <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#ef5362] ring-2 ring-white dark:ring-[#121214]" />
+                            {unreadCount > 0 && (
+                                <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ef5362] px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-[#121214]">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
                             )}
                         </button>
 
@@ -192,18 +195,40 @@ export function DashboardHeader() {
                                 >
                                     <div className="flex items-center justify-between pb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
                                         <h4 className="text-xs font-bold text-[#1c1c24] dark:text-white">Notifications</h4>
-                                        <span className="text-[10px] text-[#6330cf] dark:text-[#c4a8ff] font-semibold cursor-pointer">Mark all read</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => markRead.mutate()}
+                                            className="cursor-pointer text-[10px] font-semibold text-[#6330cf] dark:text-[#c4a8ff]"
+                                        >
+                                            Mark all read
+                                        </button>
                                     </div>
                                     <div className="mt-2 space-y-2 max-h-64 overflow-y-auto scrollbar-none">
-                                        {notificationsList.map((n) => (
-                                            <div key={n.id} className="p-2.5 rounded-xl hover:bg-[#f5f5f7] dark:hover:bg-white/[0.04] transition-colors cursor-pointer">
-                                                <div className="flex justify-between items-start">
-                                                    <p className="text-xs font-bold text-[#1c1c24] dark:text-white">{n.title}</p>
-                                                    <span className="text-[9px] text-[#81858c]">{n.time}</span>
+                                        {(notifications.data ?? []).map((item) => (
+                                            <div
+                                                key={item.id}
+                                                className={cn(
+                                                    'p-2.5 rounded-xl hover:bg-[#f5f5f7] dark:hover:bg-white/[0.04] transition-colors',
+                                                    !item.read && 'bg-[#f7f4ff] dark:bg-white/[0.03]'
+                                                )}
+                                            >
+                                                <div className="flex justify-between items-start gap-2">
+                                                    <p className="text-xs font-bold text-[#1c1c24] dark:text-white">{item.title}</p>
+                                                    <span className="shrink-0 text-[9px] text-[#81858c]">{relativeTime(item.createdAt)}</span>
                                                 </div>
-                                                <p className="text-[11px] text-[#777984] dark:text-[#888a93] mt-0.5">{n.desc}</p>
+                                                <p className="text-[11px] text-[#777984] dark:text-[#888a93] mt-0.5">{item.body}</p>
                                             </div>
                                         ))}
+
+                                        {notifications.isLoading && (
+                                            <p className="py-6 text-center text-[11px] text-[#81858c]">Loading…</p>
+                                        )}
+
+                                        {!notifications.isLoading && (notifications.data ?? []).length === 0 && (
+                                            <p className="py-6 text-center text-[11px] text-[#81858c]">
+                                                Nothing yet. Card and deposit activity shows up here.
+                                            </p>
+                                        )}
                                     </div>
                                 </motion.div>
                             )}
@@ -282,4 +307,16 @@ export function DashboardHeader() {
             </AnimatePresence>
         </header>
     )
+}
+
+/** Compact "2h ago" style stamp for the notification list. */
+function relativeTime(iso: string): string {
+    const deltaMs = Date.now() - new Date(iso).getTime()
+    const minutes = Math.round(deltaMs / 60000)
+    if (minutes < 1) return 'now'
+    if (minutes < 60) return `${minutes}m ago`
+    const hours = Math.round(minutes / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.round(hours / 24)
+    return `${days}d ago`
 }

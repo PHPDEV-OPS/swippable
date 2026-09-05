@@ -2,12 +2,22 @@
 
 import { Icon } from '@iconify/react'
 import { motion, AnimatePresence } from 'framer-motion'
-import React, { useState, useEffect } from 'react'
-import { useUser } from '@clerk/nextjs'
+import React, { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { useAccount, useDisconnect } from 'wagmi'
-import { ConnectWallet, WalletDropdown, WalletDropdownDisconnect } from '@coinbase/onchainkit/wallet'
-import { Avatar, Name } from '@coinbase/onchainkit/identity'
+import { useAccount } from 'wagmi'
+import { formatMoney } from '@/lib/money'
+import {
+    ApiRequestError,
+    useCards,
+    useDeleteCard,
+    useFundCard,
+    useIssueCard,
+    useLinkWallet,
+    useMe,
+    useSetCardStatus,
+    useWallet,
+} from '@/lib/client-api'
+import type { VirtualCard } from '@/types/api'
 
 const cardColors = [
     { name: 'Swippable Violet', value: 'from-[#6330cf] via-[#824fed] to-[#5b2bd0]' },
@@ -15,234 +25,253 @@ const cardColors = [
     { name: 'Electric Blue', value: 'from-blue-600 to-indigo-800' },
     { name: 'Sunset Blaze', value: 'from-orange-500 to-rose-600' },
     { name: 'Royal Gold', value: 'from-amber-400 to-orange-600' },
-    { name: 'Midnight Onyx', value: 'from-zinc-800 to-black' }
+    { name: 'Midnight Onyx', value: 'from-zinc-800 to-black' },
 ]
 
+function errorMessage(error: unknown, fallback: string) {
+    return error instanceof ApiRequestError ? error.message : fallback
+}
+
 const Cards = () => {
-    const { user } = useUser()
-    const [cards, setCards] = useState<any[]>([])
-    const [loading, setLoading] = useState(true)
-    const [selectedCardIdx, setSelectedCardIdx] = useState(0)
-    const [isWalletConnected, setIsWalletConnected] = useState(false)
-    const [showCreateModal, setShowCreateModal] = useState(false)
-    
+    const me = useMe()
+    const wallet = useWallet('7D')
+    const cardsQuery = useCards()
+
+    const issueCard = useIssueCard()
+    const fundCard = useFundCard()
+    const deleteCard = useDeleteCard()
+    const setCardStatus = useSetCardStatus()
+    const linkWallet = useLinkWallet()
+
     const { address, isConnected } = useAccount()
-    const { disconnect } = useDisconnect()
 
-    // Form states for new card
-    const [cardHolder, setCardHolder] = useState(user?.fullName || '')
+    const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
+    const [showCreateModal, setShowCreateModal] = useState(false)
+    const [showFundModal, setShowFundModal] = useState<'FUND' | 'WITHDRAW' | null>(null)
+
+    const [cardHolder, setCardHolder] = useState('')
     const [cardColor, setCardColor] = useState(cardColors[0].value)
-    const [spendingLimit, setSpendingLimit] = useState('5000')
+    const [initialAmount, setInitialAmount] = useState('100')
+    const [fundAmount, setFundAmount] = useState('50')
 
-    const fetchCards = async () => {
-        try {
-            const res = await fetch('/api/cards')
-            const data = await res.json()
-            if (Array.isArray(data)) {
-                setCards(data)
-            }
-        } catch (error) {
-            console.error('Error fetching cards:', error)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const syncWallet = async (walletAddress: string) => {
-        try {
-            const res = await fetch('/api/wallet', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ address: walletAddress })
-            })
-
-            if (res.ok) {
-                setIsWalletConnected(true)
-                toast.success('Wallet connected successfully!')
-            }
-        } catch (error) {
-            console.error('Error syncing wallet:', error)
-        }
-    }
+    const cards = cardsQuery.data ?? []
+    const selectedCard: VirtualCard | undefined =
+        cards.find((card) => card.cardId === selectedCardId) ?? cards[0]
 
     useEffect(() => {
-        fetchCards()
-        if (isConnected && address) {
-            syncWallet(address)
-        } else {
-            const fetchWallet = async () => {
-                try {
-                    const res = await fetch('/api/wallet')
-                    if (res.ok) {
-                        const data = await res.json()
-                        if (data && data.base_account_address) {
-                            setIsWalletConnected(true)
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error fetching wallet:', error)
-                }
-            }
-            fetchWallet()
-        }
-    }, [user, isConnected, address])
+        if (me.data?.name && !cardHolder) setCardHolder(me.data.name)
+    }, [me.data?.name, cardHolder])
 
+    // Persist a freshly connected on-chain address so crypto deposits can be matched.
     useEffect(() => {
-        if (user?.fullName && !cardHolder) {
-            setCardHolder(user.fullName)
-        }
-    }, [user])
+        if (!isConnected || !address) return
+        if (wallet.data?.onChainAddress?.toLowerCase() === address.toLowerCase()) return
+
+        linkWallet.mutate(address, {
+            onSuccess: () => toast.success('Wallet linked to your account'),
+            onError: (error) => toast.error(errorMessage(error, 'Could not link the wallet')),
+        })
+        // linkWallet is stable for the component's lifetime.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isConnected, address, wallet.data?.onChainAddress])
 
     const handleCreateCard = async () => {
+        if (!initialAmount || Number(initialAmount) <= 0) {
+            toast.error('Enter an amount greater than zero')
+            return
+        }
+
         try {
-            const res = await fetch('/api/cards', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'Virtual',
-                    color: cardColor,
-                    holder: cardHolder || user?.fullName || 'Swippable Cardholder',
-                    spendingLimit: parseFloat(spendingLimit) || 5000,
-                    balance: 0,
-                    currency: 'USD'
-                })
+            const result = await issueCard.mutateAsync({
+                amount: initialAmount,
+                currency: 'USD',
+                color: cardColor,
+                holder: cardHolder || me.data?.name,
+                type: 'Virtual',
             })
-            if (res.ok) {
-                toast.success('Virtual card created successfully!')
-                setShowCreateModal(false)
-                fetchCards()
-            }
+            setShowCreateModal(false)
+            setSelectedCardId(result.card.cardId)
+            toast.success(`Card •••• ${result.card.last4} issued`)
+            if (result.warning) toast(result.warning, { icon: '⚠️', duration: 6000 })
         } catch (error) {
-            toast.error('Failed to create virtual card')
-            console.error('Error creating card:', error)
+            toast.error(errorMessage(error, 'Failed to issue the card'))
         }
     }
 
-    const handleToggleFreeze = async (cardId: number, currentStatus: string) => {
-        const newStatus = currentStatus === 'Active' ? 'Frozen' : 'Active'
+    const handleToggleFreeze = async (card: VirtualCard) => {
+        const next = card.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE'
         try {
-            const res = await fetch(`/api/cards/${cardId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
-            })
-            if (res.ok) {
-                toast.success(`Card ${newStatus === 'Frozen' ? 'frozen' : 'unfrozen'}`)
-                fetchCards()
-            }
+            await setCardStatus.mutateAsync({ cardId: card.cardId, status: next })
+            toast.success(next === 'PAUSED' ? 'Card paused' : 'Card resumed')
         } catch (error) {
-            console.error('Error updating card:', error)
+            toast.error(errorMessage(error, 'Could not update the card'))
         }
     }
 
-    const handleDeleteCard = async (cardId: number) => {
-        if (!confirm('Are you sure you want to delete this virtual card?')) return
+    const handleDeleteCard = async (card: VirtualCard) => {
+        if (!confirm(`Terminate card •••• ${card.last4}? Its unspent limit returns to your wallet.`)) return
+
         try {
-            const res = await fetch(`/api/cards/${cardId}`, {
-                method: 'DELETE'
-            })
-            if (res.ok) {
-                toast.success('Card deleted')
-                fetchCards()
-                setSelectedCardIdx(0)
-            }
+            const result = await deleteCard.mutateAsync(card.cardId)
+            setSelectedCardId(null)
+            toast.success(`Card closed. ${formatMoney(result.released)} released back to your wallet.`)
         } catch (error) {
-            console.error('Error deleting card:', error)
+            toast.error(errorMessage(error, 'Could not terminate the card'))
         }
     }
 
-    const selectedCard = cards[selectedCardIdx]
+    const handleAdjustFunding = async () => {
+        if (!selectedCard) return
+        if (!fundAmount || Number(fundAmount) <= 0) {
+            toast.error('Enter an amount greater than zero')
+            return
+        }
+
+        try {
+            const result = await fundCard.mutateAsync({
+                cardId: selectedCard.cardId,
+                amount: fundAmount,
+                action: showFundModal === 'WITHDRAW' ? 'WITHDRAW' : 'FUND',
+            })
+            setShowFundModal(null)
+            toast.success(
+                showFundModal === 'WITHDRAW'
+                    ? `${formatMoney(fundAmount)} returned to your wallet`
+                    : `${formatMoney(fundAmount)} allocated to •••• ${result.card.last4}`
+            )
+            if (result.warning) toast(result.warning, { icon: '⚠️', duration: 6000 })
+        } catch (error) {
+            toast.error(errorMessage(error, 'Could not update the card limit'))
+        }
+    }
+
+    const unallocated = wallet.data?.unallocated ?? '0.00'
 
     return (
-        <div className='flex flex-col gap-8 pb-10 relative'>
-            <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+        <div className="relative flex flex-col gap-8 pb-10">
+            <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
                 <div>
-                    <h1 className='text-2xl sm:text-3xl font-extrabold text-[#1c1c24] dark:text-white tracking-tight mb-1'>
+                    <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-[#1c1c24] dark:text-white sm:text-3xl">
                         Your Cards
                     </h1>
-                    <p className='text-[#777984] dark:text-[#888a93] text-sm'>
-                        Manage your physical and virtual Swippable payment cards
+                    <p className="text-sm text-[#777984] dark:text-[#888a93]">
+                        {formatMoney(unallocated)} of your wallet is still unallocated
                     </p>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    className='bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:opacity-95 transition-all shadow-lg shadow-purple-500/20 active:scale-95'
+                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-6 py-3 font-bold text-white shadow-lg shadow-purple-500/20 transition-all hover:opacity-95 active:scale-95"
                 >
-                    <Icon icon='solar:add-circle-linear' width='22' height='22' />
+                    <Icon icon="solar:add-circle-linear" width="22" height="22" />
                     Create Virtual Card
                 </button>
             </div>
 
-            <div className='grid grid-cols-1 xl:grid-cols-2 gap-8'>
-                {/* Cards List */}
-                <div className='space-y-5'>
-                    <h2 className='text-lg font-bold text-[#1c1c24] dark:text-white tracking-tight px-1'>
+            <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+                {/* Card list */}
+                <div className="space-y-5">
+                    <h2 className="px-1 text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
                         My Wallet
                     </h2>
-                    <div className='grid gap-5'>
-                        {loading ? (
-                            <div className='text-[#777984] dark:text-[#888a93] p-10 text-center bg-white dark:bg-[#121214] rounded-3xl border border-black/[0.04] dark:border-white/[0.06]'>
-                                Loading cards...
+                    <div className="grid gap-5">
+                        {cardsQuery.isLoading ? (
+                            <div className="rounded-3xl border border-black/[0.04] bg-white p-10 text-center text-[#777984] dark:border-white/[0.06] dark:bg-[#121214] dark:text-[#888a93]">
+                                Loading cards…
                             </div>
                         ) : cards.length === 0 ? (
-                            <div className='text-center p-10 bg-white dark:bg-[#121214] border border-dashed border-black/[0.08] dark:border-white/10 rounded-3xl space-y-4'>
-                                <p className='text-[#777984] dark:text-[#888a93] text-sm'>
-                                    No cards found yet. Create your first virtual card now!
+                            <div className="space-y-4 rounded-3xl border border-dashed border-black/[0.08] bg-white p-10 text-center dark:border-white/10 dark:bg-[#121214]">
+                                <p className="text-sm text-[#777984] dark:text-[#888a93]">
+                                    No cards yet. Issue one to allocate part of your wallet balance to it.
                                 </p>
                                 <button
                                     onClick={() => setShowCreateModal(true)}
-                                    className='bg-[#6330cf] text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 transition-all'
+                                    className="rounded-xl bg-[#6330cf] px-5 py-2.5 text-xs font-bold text-white transition-all hover:opacity-90"
                                 >
                                     + Issue Virtual Card
                                 </button>
                             </div>
                         ) : (
-                            cards.map((card, idx) => (
+                            cards.map((card, index) => (
                                 <motion.div
-                                    key={card.id}
+                                    key={card.cardId}
                                     initial={{ opacity: 0, scale: 0.96 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: idx * 0.08 }}
-                                    onClick={() => setSelectedCardIdx(idx)}
-                                    className={`bg-gradient-to-br ${card.color || 'from-[#6330cf] to-[#8553ec]'} rounded-[2rem] p-7 aspect-[1.6/1] flex flex-col justify-between relative overflow-hidden group shadow-xl transition-all duration-300 cursor-pointer hover:scale-[1.01] ${selectedCardIdx === idx ? 'ring-3 ring-[#7042f4] ring-offset-4 ring-offset-[#f5f5f7] dark:ring-offset-[#080808]' : ''}`}
+                                    transition={{ delay: index * 0.08 }}
+                                    onClick={() => setSelectedCardId(card.cardId)}
+                                    className={`bg-gradient-to-br ${card.color} group relative flex aspect-[1.6/1] cursor-pointer flex-col justify-between overflow-hidden rounded-[2rem] p-7 shadow-xl transition-all duration-300 hover:scale-[1.01] ${
+                                        selectedCard?.cardId === card.cardId
+                                            ? 'ring-3 ring-[#7042f4] ring-offset-4 ring-offset-[#f5f5f7] dark:ring-offset-[#080808]'
+                                            : ''
+                                    }`}
                                 >
-                                    {/* Gloss reflection overlay */}
-                                    <div className='pointer-events-none absolute -inset-full bg-[linear-gradient(115deg,transparent_30%,rgba(255,255,255,0.2)_48%,rgba(255,255,255,0.05)_55%,transparent_70%)] opacity-80' />
+                                    <div className="pointer-events-none absolute -inset-full bg-[linear-gradient(115deg,transparent_30%,rgba(255,255,255,0.2)_48%,rgba(255,255,255,0.05)_55%,transparent_70%)] opacity-80" />
 
-                                    <div className='flex justify-between items-start relative z-10'>
-                                        <span className='text-white font-black italic text-2xl tracking-tighter'>Swippable</span>
-                                        <div className='flex flex-col items-end'>
-                                            <Icon icon='solar:chip-linear' width='42' height='42' className='text-white/90' />
-                                            <span className='text-[9px] text-white/70 font-black uppercase tracking-widest mt-1'>{card.type || 'Virtual'} Card</span>
+                                    <div className="relative z-10 flex items-start justify-between">
+                                        <span className="text-2xl font-black italic tracking-tighter text-white">
+                                            Swippable
+                                        </span>
+                                        <div className="flex flex-col items-end">
+                                            <Icon
+                                                icon="solar:chip-linear"
+                                                width="42"
+                                                height="42"
+                                                className="text-white/90"
+                                            />
+                                            <span className="mt-1 text-[9px] font-black uppercase tracking-widest text-white/70">
+                                                {card.type} · {card.provider}
+                                            </span>
                                         </div>
                                     </div>
 
-                                    <div className='text-white text-2xl sm:text-3xl font-mono tracking-[0.16em] relative z-10 mt-3 tabular-nums drop-shadow-sm'>
-                                        {card.number || '•••• •••• •••• 3456'}
+                                    <div className="relative z-10 mt-3 font-mono text-2xl tabular-nums tracking-[0.16em] text-white drop-shadow-sm sm:text-3xl">
+                                        {card.maskedPan}
                                     </div>
 
-                                    <div className='flex justify-between items-end text-white relative z-10'>
-                                        <div className='space-y-3'>
+                                    <div className="relative z-10 flex items-end justify-between text-white">
+                                        <div className="space-y-3">
                                             <div>
-                                                <p className='text-[9px] text-white/70 uppercase tracking-widest font-bold mb-0.5'>Card Holder</p>
-                                                <p className='font-bold text-base sm:text-lg uppercase'>{card.holder || user?.fullName || 'CARDHOLDER'}</p>
+                                                <p className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-white/70">
+                                                    Card Holder
+                                                </p>
+                                                <p className="text-base font-bold uppercase sm:text-lg">
+                                                    {card.holder}
+                                                </p>
                                             </div>
-                                            <div className='flex gap-8'>
+                                            <div className="flex gap-8">
                                                 <div>
-                                                    <p className='text-[9px] text-white/70 uppercase tracking-widest font-bold mb-0.5'>Expiry</p>
-                                                    <p className='font-semibold text-sm sm:text-base'>{card.expiry || '12/28'}</p>
+                                                    <p className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-white/70">
+                                                        Expiry
+                                                    </p>
+                                                    <p className="text-sm font-semibold sm:text-base">
+                                                        {card.expiry || '—'}
+                                                    </p>
                                                 </div>
                                                 <div>
-                                                    <p className='text-[9px] text-white/70 uppercase tracking-widest font-bold mb-0.5'>Status</p>
-                                                    <div className='flex items-center gap-1.5'>
-                                                        <div className={`w-2 h-2 rounded-full ${card.status === 'Active' ? 'bg-[#12b88f] animate-pulse' : 'bg-red-500'}`} />
-                                                        <p className='font-semibold text-sm sm:text-base'>{card.status || 'Active'}</p>
+                                                    <p className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-white/70">
+                                                        Status
+                                                    </p>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div
+                                                            className={`h-2 w-2 rounded-full ${
+                                                                card.status === 'ACTIVE'
+                                                                    ? 'animate-pulse bg-[#12b88f]'
+                                                                    : 'bg-amber-400'
+                                                            }`}
+                                                        />
+                                                        <p className="text-sm font-semibold capitalize sm:text-base">
+                                                            {card.status.toLowerCase()}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className='bg-white/20 px-3 py-1.5 rounded-xl backdrop-blur-md border border-white/20 flex items-center justify-center font-bold text-xs'>
-                                            {card.currency || 'USD'}
+                                        <div className="flex flex-col items-end gap-1">
+                                            <div className="flex items-center justify-center rounded-xl border border-white/20 bg-white/20 px-3 py-1.5 text-xs font-bold backdrop-blur-md">
+                                                {card.currency}
+                                            </div>
+                                            <span className="text-[10px] font-semibold text-white/80">
+                                                {formatMoney(card.availableToSpend, card.currency)} left
+                                            </span>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -251,171 +280,345 @@ const Cards = () => {
                     </div>
                 </div>
 
-                {/* Card Details & Management */}
-                <div className='space-y-6'>
+                {/* Card management */}
+                <div className="space-y-6">
                     {selectedCard && (
-                        <div className='bg-white dark:bg-[#121214] border border-black/[0.05] dark:border-white/[0.08] rounded-[2rem] p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)]'>
-                            <h2 className='text-lg font-bold text-[#1c1c24] dark:text-white mb-6 tracking-tight'>Card Management</h2>
-                            <div className='space-y-3'>
-                                <button className='w-full flex items-center justify-between p-4 rounded-2xl bg-[#f5f5f7] dark:bg-white/[0.04] hover:bg-[#eceef2] dark:hover:bg-white/[0.07] transition-all group'>
-                                    <div className='flex items-center gap-4'>
-                                        <div className='w-11 h-11 rounded-xl bg-white dark:bg-white/5 flex items-center justify-center text-[#6330cf] dark:text-[#c4a8ff] shadow-sm'>
-                                            <Icon icon='solar:shield-keyhole-linear' width='22' height='22' />
-                                        </div>
-                                        <div className='text-left'>
-                                            <p className='text-[#1c1c24] dark:text-white font-bold text-sm'>Change Security PIN</p>
-                                            <p className='text-[#777984] dark:text-[#888a93] text-xs font-medium'>Update authentication code</p>
-                                        </div>
-                                    </div>
-                                    <Icon icon='solar:alt-arrow-right-linear' className='text-[#9a9ca4] group-hover:text-[#6330cf] dark:group-hover:text-white transition-colors' />
-                                </button>
+                        <div className="rounded-[2rem] border border-black/[0.05] bg-white p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214]">
+                            <h2 className="mb-6 text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
+                                Card Management
+                            </h2>
+                            <div className="space-y-3">
+                                <ManagementRow
+                                    icon="solar:card-send-linear"
+                                    iconClass="text-[#6330cf] dark:text-[#c4a8ff]"
+                                    title="Add Funds to Card"
+                                    subtitle={`${formatMoney(unallocated)} unallocated in your wallet`}
+                                    onClick={() => {
+                                        setShowFundModal('FUND')
+                                        setFundAmount('50')
+                                    }}
+                                />
 
-                                <button
-                                    onClick={() => handleToggleFreeze(selectedCard.id, selectedCard.status)}
-                                    className='w-full flex items-center justify-between p-4 rounded-2xl bg-[#f5f5f7] dark:bg-white/[0.04] hover:bg-[#eceef2] dark:hover:bg-white/[0.07] transition-all group'
-                                >
-                                    <div className='flex items-center gap-4'>
-                                        <div className='w-11 h-11 rounded-xl bg-white dark:bg-white/5 flex items-center justify-center text-amber-500 shadow-sm'>
-                                            <Icon icon='solar:plain-linear' width='22' height='22' />
-                                        </div>
-                                        <div className='text-left'>
-                                            <p className='text-[#1c1c24] dark:text-white font-bold text-sm'>{selectedCard.status === 'Active' ? 'Freeze Card' : 'Unfreeze Card'}</p>
-                                            <p className='text-[#777984] dark:text-[#888a93] text-xs font-medium'>Temporarily lock/unlock spending</p>
-                                        </div>
-                                    </div>
-                                    <Icon icon='solar:alt-arrow-right-linear' className='text-[#9a9ca4] group-hover:text-amber-500 transition-colors' />
-                                </button>
+                                <ManagementRow
+                                    icon="solar:card-recive-linear"
+                                    iconClass="text-[#12b88f]"
+                                    title="Release Funds to Wallet"
+                                    subtitle={`${formatMoney(selectedCard.availableToSpend)} available to release`}
+                                    onClick={() => {
+                                        setShowFundModal('WITHDRAW')
+                                        setFundAmount('50')
+                                    }}
+                                />
 
-                                <button
-                                    onClick={() => handleDeleteCard(selectedCard.id)}
-                                    className='w-full flex items-center justify-between p-4 rounded-2xl bg-[#f5f5f7] dark:bg-white/[0.04] hover:bg-red-50 dark:hover:bg-red-950/20 transition-all group'
-                                >
-                                    <div className='flex items-center gap-4'>
-                                        <div className='w-11 h-11 rounded-xl bg-white dark:bg-white/5 flex items-center justify-center text-red-500 shadow-sm'>
-                                            <Icon icon='solar:trash-bin-minimalistic-linear' width='22' height='22' />
-                                        </div>
-                                        <div className='text-left'>
-                                            <p className='text-red-600 dark:text-red-400 font-bold text-sm'>Delete Virtual Card</p>
-                                            <p className='text-[#777984] dark:text-[#888a93] text-xs font-medium'>Permanently deactivate card</p>
-                                        </div>
-                                    </div>
-                                    <Icon icon='solar:alt-arrow-right-linear' className='text-[#9a9ca4] group-hover:text-red-500 transition-colors' />
-                                </button>
+                                <ManagementRow
+                                    icon="solar:plain-linear"
+                                    iconClass="text-amber-500"
+                                    title={selectedCard.status === 'ACTIVE' ? 'Pause Card' : 'Resume Card'}
+                                    subtitle="A paused card declines every authorisation"
+                                    onClick={() => handleToggleFreeze(selectedCard)}
+                                />
+
+                                <ManagementRow
+                                    icon="solar:trash-bin-minimalistic-linear"
+                                    iconClass="text-red-500"
+                                    title="Terminate Card"
+                                    subtitle="Closes the card and releases its unspent limit"
+                                    danger
+                                    onClick={() => handleDeleteCard(selectedCard)}
+                                />
                             </div>
                         </div>
                     )}
 
-                    <div className='bg-white dark:bg-[#121214] border border-black/[0.05] dark:border-white/[0.08] rounded-[2rem] p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)]'>
-                        <h2 className='text-lg font-bold text-[#1c1c24] dark:text-white mb-6 tracking-tight'>Spending Statistics</h2>
-                        <div className='space-y-5'>
-                            <div className='flex justify-between items-end'>
-                                <div>
-                                    <p className='text-[#777984] dark:text-[#888a93] text-[10px] uppercase font-bold tracking-widest mb-1'>Monthly Limit</p>
-                                    <p className='text-2xl sm:text-3xl font-extrabold text-[#1c1c24] dark:text-white'>${Number(selectedCard?.spendingLimit || 5000).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                    <div className="rounded-[2rem] border border-black/[0.05] bg-white p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214]">
+                        <h2 className="mb-6 text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
+                            Spending Statistics
+                        </h2>
+
+                        {selectedCard ? (
+                            <div className="space-y-5">
+                                <div className="flex items-end justify-between">
+                                    <div>
+                                        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#777984] dark:text-[#888a93]">
+                                            Card Limit
+                                        </p>
+                                        <p className="text-2xl font-extrabold text-[#1c1c24] dark:text-white sm:text-3xl">
+                                            {formatMoney(selectedCard.cardSpendingLimit, selectedCard.currency)}
+                                        </p>
+                                    </div>
+                                    <p className="text-sm font-bold text-[#ef5362]">
+                                        {formatMoney(selectedCard.totalSpentByCard, selectedCard.currency)} spent
+                                    </p>
                                 </div>
-                                <p className='text-[#12b88f] text-sm font-bold'>${Number(selectedCard?.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} Used</p>
+
+                                <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#f5f5f7] dark:bg-white/10">
+                                    <div
+                                        className="h-full rounded-full bg-gradient-to-r from-[#6330cf] to-[#12b88f]"
+                                        style={{ width: `${Math.min(100, selectedCard.utilisation)}%` }}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 text-center">
+                                    <div className="rounded-2xl bg-[#fafafc] p-3 dark:bg-white/[0.03]">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#9a9ca4]">
+                                            Available
+                                        </p>
+                                        <p className="text-sm font-extrabold text-[#1c1c24] dark:text-white">
+                                            {formatMoney(selectedCard.availableToSpend, selectedCard.currency)}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-2xl bg-[#fafafc] p-3 dark:bg-white/[0.03]">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#9a9ca4]">
+                                            Transactions
+                                        </p>
+                                        <p className="text-sm font-extrabold text-[#1c1c24] dark:text-white">
+                                            {selectedCard.transactionCount}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <p className="text-center text-xs font-medium text-[#777984] dark:text-[#888a93]">
+                                    {Math.max(0, 100 - Math.round(selectedCard.utilisation))}% of this card&apos;s
+                                    limit is still available
+                                </p>
                             </div>
-                            <div className='w-full h-2.5 bg-[#f5f5f7] dark:bg-white/10 rounded-full overflow-hidden'>
-                                <div
-                                    className='h-full bg-gradient-to-r from-[#6330cf] to-[#12b88f] rounded-full'
-                                    style={{ width: `${Math.min(100, (Number(selectedCard?.balance || 0) / Number(selectedCard?.spendingLimit || 5000)) * 100)}%` }}
-                                />
-                            </div>
-                            <p className='text-[#777984] dark:text-[#888a93] text-xs text-center font-medium'>
-                                You have {100 - Math.round((Number(selectedCard?.balance || 0) / Number(selectedCard?.spendingLimit || 5000)) * 100)}% of your monthly limit remaining
+                        ) : (
+                            <p className="py-6 text-center text-xs text-[#777984] dark:text-[#888a93]">
+                                Issue a card to see its spending statistics.
                             </p>
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Create Card Modal */}
+            {/* Create card modal */}
             <AnimatePresence>
                 {showCreateModal && (
-                    <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6'>
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setShowCreateModal(false)}
-                            className='absolute inset-0 bg-black/60 backdrop-blur-md'
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.94, y: 16 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.94, y: 16 }}
-                            className='bg-white dark:bg-[#121214] border border-black/10 dark:border-white/10 rounded-[2.5rem] p-6 sm:p-8 max-w-xl w-full relative z-10 shadow-2xl text-[#1c1c24] dark:text-white'
-                        >
-                            <div className='flex justify-between items-start mb-6'>
-                                <div>
-                                    <h2 className='text-2xl font-bold tracking-tight'>Issue Swippable Virtual Card</h2>
-                                    <p className='text-[#777984] dark:text-[#888a93] text-xs mt-0.5'>Customize your new virtual spending card</p>
-                                </div>
-                                <button
-                                    onClick={() => setShowCreateModal(false)}
-                                    className='w-8 h-8 rounded-full flex items-center justify-center text-[#777984] hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
-                                >
-                                    <Icon icon='solar:close-circle-linear' width='22' height='22' />
-                                </button>
+                    <ModalShell onClose={() => setShowCreateModal(false)}>
+                        <div className="mb-6 flex items-start justify-between">
+                            <div>
+                                <h2 className="text-2xl font-bold tracking-tight">Issue Swippable Virtual Card</h2>
+                                <p className="mt-0.5 text-xs text-[#777984] dark:text-[#888a93]">
+                                    {formatMoney(unallocated)} unallocated in your wallet
+                                </p>
                             </div>
+                            <button
+                                onClick={() => setShowCreateModal(false)}
+                                className="flex h-8 w-8 items-center justify-center rounded-full text-[#777984] transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                            >
+                                <Icon icon="solar:close-circle-linear" width="22" height="22" />
+                            </button>
+                        </div>
 
-                            <div className='space-y-4'>
-                                <div>
-                                    <label className='text-[10px] font-bold uppercase tracking-wider text-[#777984] dark:text-[#888a93] block mb-1.5'>Cardholder Name</label>
-                                    <input
-                                        type="text"
-                                        value={cardHolder}
-                                        onChange={(e) => setCardHolder(e.target.value)}
-                                        placeholder="Enter cardholder name"
-                                        className='w-full bg-[#f5f5f7] dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:ring-2 focus:ring-[#7042f4]'
-                                    />
-                                </div>
-                                <div>
-                                    <label className='text-[10px] font-bold uppercase tracking-wider text-[#777984] dark:text-[#888a93] block mb-1.5'>Monthly Spending Limit (USD)</label>
-                                    <input
-                                        type="number"
-                                        value={spendingLimit}
-                                        onChange={(e) => setSpendingLimit(e.target.value)}
-                                        placeholder="5000"
-                                        className='w-full bg-[#f5f5f7] dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:ring-2 focus:ring-[#7042f4]'
-                                    />
-                                </div>
-                                <div>
-                                    <label className='text-[10px] font-bold uppercase tracking-wider text-[#777984] dark:text-[#888a93] block mb-1.5'>Card Color Theme</label>
-                                    <div className='grid grid-cols-6 gap-2'>
-                                        {cardColors.map((color) => (
-                                            <button
-                                                key={color.name}
-                                                type='button'
-                                                onClick={() => setCardColor(color.value)}
-                                                className={`h-9 rounded-xl bg-gradient-to-br ${color.value} border-2 transition-all ${cardColor === color.value ? 'border-black dark:border-white scale-105 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'}`}
-                                                title={color.name}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
+                        <div className="space-y-4">
+                            <Field label="Cardholder Name">
+                                <input
+                                    type="text"
+                                    value={cardHolder}
+                                    onChange={(event) => setCardHolder(event.target.value)}
+                                    placeholder="Enter cardholder name"
+                                    className="w-full rounded-xl border border-black/10 bg-[#f5f5f7] px-4 py-3 text-xs font-semibold outline-none focus:ring-2 focus:ring-[#7042f4] dark:border-white/10 dark:bg-white/5"
+                                />
+                            </Field>
 
-                            <div className='flex gap-3 pt-6'>
-                                <button
-                                    onClick={() => setShowCreateModal(false)}
-                                    className='flex-1 py-3 rounded-xl border border-black/10 dark:border-white/10 text-xs font-bold text-[#777984] hover:bg-black/5 dark:hover:bg-white/5'
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleCreateCard}
-                                    className='flex-1 bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white py-3 rounded-xl font-bold text-xs shadow-lg shadow-purple-500/20 hover:opacity-95'
-                                >
-                                    Generate Card
-                                </button>
+                            <Field label="Amount to allocate (USD)">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    step="0.01"
+                                    value={initialAmount}
+                                    onChange={(event) => setInitialAmount(event.target.value)}
+                                    className="w-full rounded-xl border border-black/10 bg-[#f5f5f7] px-4 py-3 text-xs font-semibold outline-none focus:ring-2 focus:ring-[#7042f4] dark:border-white/10 dark:bg-white/5"
+                                />
+                            </Field>
+
+                            <Field label="Card Colour Theme">
+                                <div className="grid grid-cols-6 gap-2">
+                                    {cardColors.map((color) => (
+                                        <button
+                                            key={color.name}
+                                            type="button"
+                                            onClick={() => setCardColor(color.value)}
+                                            className={`h-9 rounded-xl bg-gradient-to-br ${color.value} border-2 transition-all ${
+                                                cardColor === color.value
+                                                    ? 'scale-105 border-black shadow-md dark:border-white'
+                                                    : 'border-transparent opacity-70 hover:opacity-100'
+                                            }`}
+                                            title={color.name}
+                                        />
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        <div className="flex gap-3 pt-6">
+                            <button
+                                onClick={() => setShowCreateModal(false)}
+                                className="flex-1 rounded-xl border border-black/10 py-3 text-xs font-bold text-[#777984] hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleCreateCard}
+                                disabled={issueCard.isPending}
+                                className="flex-1 rounded-xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] py-3 text-xs font-bold text-white shadow-lg shadow-purple-500/20 hover:opacity-95 disabled:opacity-60"
+                            >
+                                {issueCard.isPending ? 'Issuing…' : 'Generate Card'}
+                            </button>
+                        </div>
+                    </ModalShell>
+                )}
+            </AnimatePresence>
+
+            {/* Fund / withdraw modal */}
+            <AnimatePresence>
+                {showFundModal && selectedCard && (
+                    <ModalShell onClose={() => setShowFundModal(null)}>
+                        <div className="mb-6 flex items-start justify-between">
+                            <div>
+                                <h2 className="text-2xl font-bold tracking-tight">
+                                    {showFundModal === 'FUND' ? 'Add Funds to Card' : 'Release Funds to Wallet'}
+                                </h2>
+                                <p className="mt-0.5 text-xs text-[#777984] dark:text-[#888a93]">
+                                    Card •••• {selectedCard.last4} ·{' '}
+                                    {showFundModal === 'FUND'
+                                        ? `${formatMoney(unallocated)} unallocated`
+                                        : `${formatMoney(selectedCard.availableToSpend)} releasable`}
+                                </p>
                             </div>
-                        </motion.div>
-                    </div>
+                            <button
+                                onClick={() => setShowFundModal(null)}
+                                className="flex h-8 w-8 items-center justify-center rounded-full text-[#777984] transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                            >
+                                <Icon icon="solar:close-circle-linear" width="22" height="22" />
+                            </button>
+                        </div>
+
+                        <Field label="Amount (USD)">
+                            <input
+                                type="number"
+                                min="1"
+                                step="0.01"
+                                value={fundAmount}
+                                onChange={(event) => setFundAmount(event.target.value)}
+                                className="w-full rounded-xl border border-black/10 bg-[#f5f5f7] px-4 py-3 text-base font-bold outline-none focus:ring-2 focus:ring-[#7042f4] dark:border-white/10 dark:bg-white/5"
+                            />
+                        </Field>
+
+                        <div className="mt-3 flex gap-2">
+                            {['25', '50', '100', '250'].map((amount) => (
+                                <button
+                                    key={amount}
+                                    type="button"
+                                    onClick={() => setFundAmount(amount)}
+                                    className="flex-1 rounded-lg bg-[#f5f5f7] py-1.5 text-xs font-bold text-[#777984] hover:text-[#1c1c24] dark:bg-white/5 dark:hover:text-white"
+                                >
+                                    ${amount}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex gap-3 pt-6">
+                            <button
+                                onClick={() => setShowFundModal(null)}
+                                className="flex-1 rounded-xl border border-black/10 py-3 text-xs font-bold text-[#777984] hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAdjustFunding}
+                                disabled={fundCard.isPending}
+                                className="flex-1 rounded-xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] py-3 text-xs font-bold text-white shadow-lg shadow-purple-500/20 hover:opacity-95 disabled:opacity-60"
+                            >
+                                {fundCard.isPending
+                                    ? 'Working…'
+                                    : showFundModal === 'FUND'
+                                      ? 'Add Funds'
+                                      : 'Release Funds'}
+                            </button>
+                        </div>
+                    </ModalShell>
                 )}
             </AnimatePresence>
         </div>
     )
 }
 
-export { Cards };
+function ManagementRow({
+    icon,
+    iconClass,
+    title,
+    subtitle,
+    onClick,
+    danger,
+}: {
+    icon: string
+    iconClass: string
+    title: string
+    subtitle: string
+    onClick: () => void
+    danger?: boolean
+}) {
+    return (
+        <button
+            onClick={onClick}
+            className={`group flex w-full items-center justify-between rounded-2xl bg-[#f5f5f7] p-4 transition-all dark:bg-white/[0.04] ${
+                danger ? 'hover:bg-red-50 dark:hover:bg-red-950/20' : 'hover:bg-[#eceef2] dark:hover:bg-white/[0.07]'
+            }`}
+        >
+            <div className="flex items-center gap-4">
+                <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm dark:bg-white/5 ${iconClass}`}
+                >
+                    <Icon icon={icon} width="22" height="22" />
+                </div>
+                <div className="text-left">
+                    <p
+                        className={`text-sm font-bold ${
+                            danger ? 'text-red-600 dark:text-red-400' : 'text-[#1c1c24] dark:text-white'
+                        }`}
+                    >
+                        {title}
+                    </p>
+                    <p className="text-xs font-medium text-[#777984] dark:text-[#888a93]">{subtitle}</p>
+                </div>
+            </div>
+            <Icon icon="solar:alt-arrow-right-linear" className="text-[#9a9ca4]" />
+        </button>
+    )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-[#777984] dark:text-[#888a93]">
+                {label}
+            </label>
+            {children}
+        </div>
+    )
+}
+
+function ModalShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            <motion.div
+                initial={{ opacity: 0, scale: 0.94, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.94, y: 16 }}
+                className="relative z-10 w-full max-w-xl rounded-[2.5rem] border border-black/10 bg-white p-6 text-[#1c1c24] shadow-2xl dark:border-white/10 dark:bg-[#121214] dark:text-white sm:p-8"
+            >
+                {children}
+            </motion.div>
+        </div>
+    )
+}
+
+export { Cards }
