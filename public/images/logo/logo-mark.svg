@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Swippable">
+  <title>Swippable</title>
+  <!-- Stacked isometric layers, lightest at the back so the deck reads as depth. -->
+  <polygon points="32,25 61,39 32,53 3,39" fill="#a98bc4" />
+  <polygon points="32,15.5 61,29.5 32,43.5 3,29.5" fill="#6b3fa0" />
+  <polygon points="32,6 61,20 32,34 3,20" fill="#3d0a72" />
+</svg>
