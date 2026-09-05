@@ -445,9 +445,21 @@ export function Overview() {
                             className="flex flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none md:col-span-7"
                         >
                             <div className="flex items-center justify-between">
-                                <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
-                                    Activity Summary
-                                </h2>
+                                <div className="flex items-center gap-3">
+                                    <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
+                                        Activity Summary
+                                    </h2>
+                                    <div className="hidden items-center gap-2.5 sm:flex">
+                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-[#81858c]">
+                                            <span className="h-2 w-2 rounded-full bg-[#7042f4]" />
+                                            Spent
+                                        </span>
+                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-[#81858c]">
+                                            <span className="h-2 w-2 rounded-full bg-[#12b88f]" />
+                                            Received
+                                        </span>
+                                    </div>
+                                </div>
                                 <div className="flex items-center rounded-full bg-[#f5f5f7] p-1 dark:bg-white/[0.06]">
                                     {(['Day', 'Week', 'Month'] as const).map((period) => (
                                         <button
@@ -499,11 +511,14 @@ export function Overview() {
                                                 content={<CustomActivityTooltip />}
                                                 cursor={{ fill: 'transparent' }}
                                             />
+                                            {/* Solid, semantic fills: violet for money out,
+                                                teal for money in. The previous credit fill was a
+                                                near-white tint that vanished against the panel. */}
                                             <Bar dataKey="debit" stackId="a" fill="#7042f4" />
                                             <Bar
                                                 dataKey="credit"
                                                 stackId="a"
-                                                fill={theme === 'dark' ? '#281b45' : '#f0eaff'}
+                                                fill="#12b88f"
                                                 radius={[6, 6, 0, 0]}
                                             />
                                         </BarChart>

@@ -1,6 +1,16 @@
 'use client'
 
-import { Icon } from '@iconify/react'
+import {
+    ArrowDownToLine,
+    ArrowUpFromLine,
+    ChevronRight,
+    Pause,
+    Play,
+    PlusCircle,
+    Trash2,
+    X,
+    type LucideIcon,
+} from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import React, { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
@@ -186,7 +196,7 @@ const Cards = () => {
                     onClick={() => setShowCreateModal(true)}
                     className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-6 py-3 font-bold text-white shadow-lg shadow-purple-500/20 transition-all hover:opacity-95 active:scale-95"
                 >
-                    <Icon icon="solar:add-circle-linear" width="22" height="22" />
+                    <PlusCircle size={20} />
                     Create Virtual Card
                 </button>
             </div>
@@ -265,18 +275,18 @@ const Cards = () => {
                     card list however far the list scrolls. */}
                 <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
                     {selectedCard && (
-                        <div className="rounded-[2rem] border border-black/[0.05] bg-white p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214]">
-                            <div className="mb-6 flex items-center justify-between gap-3">
-                                <h2 className="text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
+                        <div className="rounded-[24px] border border-black/[0.05] bg-white p-5 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214]">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                                <h2 className="text-base font-bold tracking-tight text-[#1c1c24] dark:text-white">
                                     Card Management
                                 </h2>
                                 <span className="rounded-full bg-[#f0eaff] px-2.5 py-1 font-mono text-[11px] font-bold text-[#6330cf] dark:bg-[#281b45] dark:text-[#c4a8ff]">
                                     •••• {selectedCard.last4}
                                 </span>
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-2">
                                 <ManagementRow
-                                    icon="solar:card-send-linear"
+                                    icon={ArrowDownToLine}
                                     iconClass="text-[#6330cf] dark:text-[#c4a8ff]"
                                     title="Add Funds to Card"
                                     subtitle={`${formatMoney(unallocated)} unallocated in your wallet`}
@@ -287,7 +297,7 @@ const Cards = () => {
                                 />
 
                                 <ManagementRow
-                                    icon="solar:card-recive-linear"
+                                    icon={ArrowUpFromLine}
                                     iconClass="text-[#12b88f]"
                                     title="Release Funds to Wallet"
                                     subtitle={`${formatMoney(selectedCard.availableToSpend)} available to release`}
@@ -298,7 +308,7 @@ const Cards = () => {
                                 />
 
                                 <ManagementRow
-                                    icon="solar:plain-linear"
+                                    icon={selectedCard.status === 'ACTIVE' ? Pause : Play}
                                     iconClass="text-amber-500"
                                     title={selectedCard.status === 'ACTIVE' ? 'Pause Card' : 'Resume Card'}
                                     subtitle="A paused card declines every authorisation"
@@ -306,7 +316,7 @@ const Cards = () => {
                                 />
 
                                 <ManagementRow
-                                    icon="solar:trash-bin-minimalistic-linear"
+                                    icon={Trash2}
                                     iconClass="text-red-500"
                                     title="Terminate Card"
                                     subtitle="Closes the card and releases its unspent limit"
@@ -317,19 +327,19 @@ const Cards = () => {
                         </div>
                     )}
 
-                    <div className="rounded-[2rem] border border-black/[0.05] bg-white p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214]">
-                        <h2 className="mb-6 text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
+                    <div className="rounded-[24px] border border-black/[0.05] bg-white p-5 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214]">
+                        <h2 className="mb-4 text-base font-bold tracking-tight text-[#1c1c24] dark:text-white">
                             Spending Statistics
                         </h2>
 
                         {selectedCard ? (
-                            <div className="space-y-5">
+                            <div className="space-y-4">
                                 <div className="flex items-end justify-between">
                                     <div>
                                         <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#777984] dark:text-[#888a93]">
                                             Card Limit
                                         </p>
-                                        <p className="text-2xl font-extrabold text-[#1c1c24] dark:text-white sm:text-3xl">
+                                        <p className="text-xl font-extrabold text-[#1c1c24] dark:text-white sm:text-2xl">
                                             {formatMoney(selectedCard.cardSpendingLimit, selectedCard.currency)}
                                         </p>
                                     </div>
@@ -393,7 +403,7 @@ const Cards = () => {
                                 onClick={() => setShowCreateModal(false)}
                                 className="flex h-8 w-8 items-center justify-center rounded-full text-[#777984] transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                             >
-                                <Icon icon="solar:close-circle-linear" width="22" height="22" />
+                                <X size={18} />
                             </button>
                         </div>
 
@@ -477,7 +487,7 @@ const Cards = () => {
                                 onClick={() => setShowFundModal(null)}
                                 className="flex h-8 w-8 items-center justify-center rounded-full text-[#777984] transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                             >
-                                <Icon icon="solar:close-circle-linear" width="22" height="22" />
+                                <X size={18} />
                             </button>
                         </div>
 
@@ -539,38 +549,41 @@ function ManagementRow({
     onClick,
     danger,
 }: {
-    icon: string
+    icon: LucideIcon
     iconClass: string
     title: string
     subtitle: string
     onClick: () => void
     danger?: boolean
 }) {
+    const Glyph = icon
     return (
         <button
             onClick={onClick}
-            className={`group flex w-full items-center justify-between rounded-2xl bg-[#f5f5f7] p-4 transition-all dark:bg-white/[0.04] ${
+            className={`group flex w-full items-center justify-between gap-2 rounded-xl bg-[#f5f5f7] p-3 transition-all dark:bg-white/[0.04] ${
                 danger ? 'hover:bg-red-50 dark:hover:bg-red-950/20' : 'hover:bg-[#eceef2] dark:hover:bg-white/[0.07]'
             }`}
         >
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-3">
                 <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm dark:bg-white/5 ${iconClass}`}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-white/5 ${iconClass}`}
                 >
-                    <Icon icon={icon} width="22" height="22" />
+                    <Glyph size={17} />
                 </div>
-                <div className="text-left">
+                <div className="min-w-0 text-left">
                     <p
-                        className={`text-sm font-bold ${
+                        className={`truncate text-[13px] font-bold ${
                             danger ? 'text-red-600 dark:text-red-400' : 'text-[#1c1c24] dark:text-white'
                         }`}
                     >
                         {title}
                     </p>
-                    <p className="text-xs font-medium text-[#777984] dark:text-[#888a93]">{subtitle}</p>
+                    <p className="truncate text-[11px] font-medium text-[#777984] dark:text-[#888a93]">
+                        {subtitle}
+                    </p>
                 </div>
             </div>
-            <Icon icon="solar:alt-arrow-right-linear" className="text-[#9a9ca4]" />
+            <ChevronRight size={15} className="shrink-0 text-[#9a9ca4]" />
         </button>
     )
 }
