@@ -37,6 +37,8 @@ import {
 import { cn } from '@/lib/utils'
 import { formatMoney } from '@/lib/money'
 import { ApiRequestError, useDashboardSummary, useIssueCard, useMe } from '@/lib/client-api'
+import { CardStack } from '@/components/Dashboard/Cards/CardStack'
+import { CARD_ASPECT_RATIO } from '@/components/Dashboard/Cards/SwippableCard'
 import type { LedgerTransaction, StatDelta, VirtualCard } from '@/types/api'
 
 type Period = 'Day' | 'Week' | 'Month'
@@ -337,78 +339,16 @@ export function Overview() {
                             </motion.button>
                         </div>
 
-                        <div
-                            onClick={() => cards.length > 1 && setCardStackOffset((prev) => prev + 1)}
-                            className={cn(
-                                'relative my-auto flex h-[230px] w-full select-none items-center justify-center sm:h-[245px]',
-                                cards.length > 1 && 'cursor-pointer'
+                        <div className="my-auto flex w-full items-center justify-center py-4">
+                            {cards.length > 0 ? (
+                                <CardStack
+                                    cards={cards}
+                                    activeIndex={cardStackOffset}
+                                    onActiveIndexChange={setCardStackOffset}
+                                />
+                            ) : (
+                                <EmptyCardSlot onIssue={() => setIsAddCardOpen(true)} loading={loading} />
                             )}
-                        >
-                            <motion.div
-                                animate={{ y: [0, -3, 0], scale: 0.86, top: 4 }}
-                                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                                className="absolute h-[152px] w-[86%] rounded-[20px] bg-[#dfd4fc] shadow-sm dark:bg-[#261846]"
-                            />
-                            <motion.div
-                                animate={{ y: [0, -2, 0], scale: 0.93, top: 18 }}
-                                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-                                className="absolute h-[160px] w-[93%] rounded-[21px] bg-gradient-to-r from-[#baa0f7] to-[#a882f5] shadow-md dark:from-[#3c256a] dark:to-[#4e3189]"
-                            />
-
-                            <motion.div
-                                whileHover={{ scale: 1.02, y: -4 }}
-                                whileTap={{ scale: 0.98 }}
-                                layout
-                                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                                className="relative top-9 h-[172px] w-full overflow-hidden rounded-[22px] bg-gradient-to-br from-[#622fcf] via-[#824fed] to-[#5a2ad0] p-4 text-white shadow-[0_20px_42px_rgba(99,48,207,0.38)] sm:p-5"
-                            >
-                                <div className="pointer-events-none absolute -inset-full bg-[linear-gradient(115deg,transparent_30%,rgba(255,255,255,0.22)_48%,rgba(255,255,255,0.05)_55%,transparent_70%)] opacity-85" />
-
-                                <div className="relative z-10 flex h-full flex-col justify-between">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex -space-x-2">
-                                                <div className="h-5 w-5 rounded-full bg-[#eb001b]" />
-                                                <div className="h-5 w-5 rounded-full bg-[#f79e1b] opacity-95 mix-blend-screen" />
-                                            </div>
-                                            <span className="text-[11px] font-bold capitalize tracking-tight text-white">
-                                                {currentCard?.brand.toLowerCase() ?? 'Mastercard'}
-                                            </span>
-                                        </div>
-                                        <div className="flex h-6 w-8 items-center justify-center rounded-[5px] border border-amber-300/50 bg-gradient-to-br from-amber-200 via-amber-300 to-amber-400 p-0.5 shadow-inner">
-                                            <div className="grid h-full w-full grid-cols-2 gap-0.5 rounded-[3px] border border-amber-500/40">
-                                                <div className="border-b border-r border-amber-600/30" />
-                                                <div className="border-b border-amber-600/30" />
-                                                <div className="border-r border-amber-600/30" />
-                                                <div />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-1">
-                                        <p className="text-[8px] font-semibold uppercase tracking-wider text-white/70">
-                                            Card Number
-                                        </p>
-                                        <p className="font-mono text-sm font-bold tracking-[0.19em] text-white drop-shadow-sm sm:text-[15px]">
-                                            {currentCard?.maskedPan ?? '•••• •••• •••• ••••'}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex items-end justify-between pt-1">
-                                        <div>
-                                            <p className="max-w-[180px] truncate text-[10px] font-bold uppercase tracking-wider text-white sm:text-[11px]">
-                                                {currentCard?.holder ?? me.data?.name ?? 'No card issued'}
-                                            </p>
-                                            <p className="text-[9px] text-white/70">
-                                                {currentCard ? `Exp ${currentCard.expiry}` : 'Issue a card to begin'}
-                                            </p>
-                                        </div>
-                                        <span className="text-sm font-black italic tracking-wider text-white sm:text-base">
-                                            {currentCard?.currency ?? 'USD'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </motion.div>
                         </div>
 
                         <div className="mt-3 flex items-center justify-between border-t border-black/[0.04] pt-3 text-xs dark:border-white/[0.06]">
@@ -1013,6 +953,34 @@ export function Overview() {
                     </div>
                 )}
             </AnimatePresence>
+        </div>
+    )
+}
+
+/** Placeholder that keeps the panel's proportions before any card exists. */
+function EmptyCardSlot({ onIssue, loading }: { onIssue: () => void; loading: boolean }) {
+    return (
+        <div
+            className="flex w-full flex-col items-center justify-center gap-3 rounded-[6.5%/10.3%] border border-dashed border-black/[0.1] bg-[#fafafc] dark:border-white/[0.12] dark:bg-white/[0.03]"
+            style={{ aspectRatio: `${CARD_ASPECT_RATIO}` }}
+        >
+            {loading ? (
+                <p className="text-xs font-medium text-[#9a9ca4]">Loading cards…</p>
+            ) : (
+                <>
+                    <CreditCard size={26} className="text-[#b9bbc4] dark:text-white/25" />
+                    <p className="px-6 text-center text-[11px] font-medium text-[#9a9ca4]">
+                        No cards yet. Issue one against your wallet balance.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={onIssue}
+                        className="rounded-xl bg-[#6330cf] px-4 py-1.5 text-[11px] font-bold text-white transition-opacity hover:opacity-90"
+                    >
+                        + Issue Virtual Card
+                    </button>
+                </>
+            )}
         </div>
     )
 }

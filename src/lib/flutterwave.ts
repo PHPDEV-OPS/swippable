@@ -254,6 +254,46 @@ export async function terminateVirtualCard(cardId: string): Promise<void> {
     await call(`/virtual-cards/${cardId}/terminate`, { method: 'PUT' })
 }
 
+export interface FlutterwaveCardSecrets {
+    pan: string
+    cvv: string
+    expiryMonth: string
+    expiryYear: string
+    holder: string
+}
+
+/**
+ * Fetches the full card credentials from Flutterwave for a one-off reveal.
+ *
+ * These values are deliberately never persisted - the card row stores only the
+ * masked pan and last 4. Each reveal is a fresh authenticated call to the
+ * provider, so the sensitive data exists only for the lifetime of the response.
+ */
+export async function fetchCardSecrets(cardId: string): Promise<FlutterwaveCardSecrets> {
+    const response = await call<{ data?: Record<string, any> }>(`/virtual-cards/${cardId}`, {
+        method: 'GET',
+    })
+
+    const payload = unwrap<Record<string, any>>(response)
+
+    const pan: string = String(payload.card_pan ?? payload.pan ?? payload.card_number ?? '')
+    const cvv: string = String(payload.cvv ?? payload.card_cvv ?? payload.security_code ?? '')
+
+    if (!pan) {
+        throw new FlutterwaveError('Flutterwave did not return the card number for this card')
+    }
+
+    const normalised = normaliseCard(payload as FlwCardPayload)
+
+    return {
+        pan,
+        cvv,
+        expiryMonth: normalised.expiryMonth,
+        expiryYear: normalised.expiryYear,
+        holder: String(payload.name_on_card ?? payload.cardholder?.name ?? ''),
+    }
+}
+
 /**
  * Verifies the `verif-hash` header Flutterwave sends with every webhook.
  * Compared in constant time so the check cannot be probed byte by byte.

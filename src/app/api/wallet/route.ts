@@ -3,7 +3,13 @@ import { NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth'
 import { badRequest, readJson, withRouteErrors } from '@/lib/http'
 import { getBalanceSeries } from '@/lib/analytics'
-import { getCardAllocationTotals, getWalletByUserId, sql, upsertCryptoWallet } from '@/lib/db'
+import {
+    expireStalePendingDeposits,
+    getCardAllocationTotals,
+    getWalletByUserId,
+    sql,
+    upsertCryptoWallet,
+} from '@/lib/db'
 import { decimal, percentOf, subtract } from '@/lib/money'
 import type { WalletAsset, WalletResponse } from '@/types/api'
 
@@ -22,6 +28,9 @@ export const GET = withRouteErrors('wallet:get', async (request: Request) => {
     const url = new URL(request.url)
     const range = url.searchParams.get('range') ?? '7D'
     const days = RANGE_DAYS[range] ?? 7
+
+    // Keeps `pendingDeposits` honest - anything past its window is failed first.
+    await expireStalePendingDeposits(user.id)
 
     const balance = decimal(user.wallet_balance)
 
