@@ -25,7 +25,7 @@ export function Sidebar() {
             {/* Mobile Nav Toggle */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-primary text-background rounded-xl shadow-lg shadow-primary/20"
+                className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white rounded-xl shadow-lg shadow-purple-500/20"
             >
                 {isOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -42,7 +42,7 @@ export function Sidebar() {
                             alt="logo"
                             width={32}
                             height={32}
-                            className="w-8 h-8"
+                            className="w-8 h-8 [filter:hue-rotate(115deg)_saturate(1.2)]"
                         />
                         <span className="text-xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent uppercase tracking-tighter">Swippable</span>
                     </div>
@@ -59,7 +59,7 @@ export function Sidebar() {
                                     className={cn(
                                         "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300",
                                         isActive
-                                            ? "bg-primary text-background font-bold shadow-lg shadow-primary/20"
+                                            ? "bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white font-bold shadow-lg shadow-purple-500/20"
                                             : "text-white/40 hover:text-white hover:bg-white/5"
                                     )}
                                 >

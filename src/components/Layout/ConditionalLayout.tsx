@@ -12,12 +12,17 @@ export default function ConditionalLayout({
 }) {
     const pathname = usePathname()
 
-    // Define routes where we don't want certain layout elements
     const isDashboard = pathname?.startsWith('/dashboard')
-    const isAuth = pathname === '/signin' || pathname === '/signup' || pathname === '/forgot-password' || pathname?.startsWith('/reset-password')
+    const isAuth =
+        pathname === '/signin' ||
+        pathname === '/signup' ||
+        pathname?.startsWith('/sign-in') ||
+        pathname?.startsWith('/sign-up') ||
+        pathname === '/forgot-password' ||
+        pathname?.startsWith('/reset-password')
 
-    // Show header on auth pages but hide it on dashboard
-    const hideHeader = isDashboard
+    // Hide header on dashboard and auth pages
+    const hideHeader = isDashboard || isAuth
     // Hide footer and scroll-to-top on both dashboard and auth pages
     const hideFooterAndScroll = isDashboard || isAuth
 

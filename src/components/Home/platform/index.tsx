@@ -18,9 +18,9 @@ const Platform = () => {
             <div className='flex lg:justify-end lg:mt-0 mt-7 justify-center'>
               <Link
                 href='/#work'
-                className='flex items-center gap-2.5 text-background bg-primary hover:bg-primary/80 border border-primary py-3 px-5 rounded-lg sm:text-21 text-lg font-medium'>
+                className='flex items-center gap-2.5 text-white bg-gradient-to-r from-[#6330cf] to-[#8553ec] hover:opacity-95 border border-purple-500/30 py-3 px-5 rounded-lg sm:text-21 text-lg font-medium shadow-lg shadow-purple-500/20 transition-all'>
                 Learn More
-                <Image src={"/images/icons/icon-arrow.svg"} alt="icon" width={20} height={20} />
+                <Image src={"/images/icons/icon-arrow.svg"} alt="icon" width={20} height={20} className='brightness-0 invert' />
               </Link>
             </div>
           </div>

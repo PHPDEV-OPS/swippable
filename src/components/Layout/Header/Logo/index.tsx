@@ -9,7 +9,7 @@ const Logo: React.FC = () => {
         alt="logo"
         width={480}
         height={112}
-        className="w-[480px] h-[112px]"
+        className="w-[480px] h-[112px] [filter:hue-rotate(115deg)_saturate(1.2)]"
         style={{ width: "auto", height: "auto", maxWidth: "480px", maxHeight: "112px" }}
         quality={100}
       />

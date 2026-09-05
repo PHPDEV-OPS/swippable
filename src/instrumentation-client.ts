@@ -4,8 +4,28 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason === undefined || event.reason === null || event.reason === '') {
+      event.preventDefault();
+    }
+  });
+}
+
 Sentry.init({
   dsn: "https://519cd511c4c7691e4c7a0c48b9e24b65@o4511231653642240.ingest.de.sentry.io/4512022152216656",
+
+  ignoreErrors: [
+    'Non-Error promise rejection captured with value: undefined',
+    'undefined',
+  ],
+
+  beforeSend(event, hint) {
+    if (hint?.originalException === undefined || hint?.originalException === null) {
+      return null;
+    }
+    return event;
+  },
 
   // Add optional integrations for additional features
   integrations: [Sentry.replayIntegration()],

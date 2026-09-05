@@ -104,10 +104,10 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(84.972% 0.12016 146.073);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(75.768% 0.125 198.173);
-  --secondary-foreground: oklch(0.205 0 0);
+  --primary: #7042f4;
+  --primary-foreground: #ffffff;
+  --secondary: #8553ec;
+  --secondary-foreground: #ffffff;
   --muted: oklch(88.911% 0.00329 198.79);
   --muted-foreground: oklch(0.556 0 0);
   --accent: oklch(0.97 0 0);
@@ -131,7 +131,7 @@
   --sidebar-ring: oklch(0.708 0 0);
 
   /* custom */
-  --tealGreen: #477e70;
+  --tealGreen: #6330cf;
   --charcoalGray: #666c78;
 }
 
@@ -146,10 +146,10 @@
   --card-foreground: #ffffff;
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(84.972% 0.12016 146.073);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(75.768% 0.125 198.173);
-  --secondary-foreground: oklch(0.985 0 0);
+  --primary: #7042f4;
+  --primary-foreground: #ffffff;
+  --secondary: #8553ec;
+  --secondary-foreground: #ffffff;
   --muted: oklch(88.911% 0.00329 198.79);
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(0.269 0 0);
@@ -173,7 +173,7 @@
   --sidebar-ring: oklch(0.556 0 0);
 
   /* custom */
-  --tealGreen: #477e70;
+  --tealGreen: #6330cf;
   --charcoalGray: #666c78;
 }
 
@@ -286,3 +286,67 @@ section {
     @apply bg-background text-foreground;
   }
 }
+
+/* Clerk Component: Force light theme & borderless card */
+.cl-card,
+.cl-cardBox {
+  border: none !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.cl-footer,
+.cl-footerAction,
+.cl-footerPages,
+.cl-internal-phfxk4 {
+  border: none !important;
+  border-top: none !important;
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.cl-socialButtonsBlockButton {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #374151 !important;
+  height: 54px !important;
+  border-radius: 9999px !important;
+}
+
+.cl-socialButtonsBlockButtonText {
+  color: #374151 !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+}
+
+.cl-headerTitle {
+  color: #09090b !important;
+}
+
+.cl-headerSubtitle {
+  color: #71717a !important;
+}
+
+.cl-formFieldLabel {
+  color: #09090b !important;
+  font-size: 14px !important;
+}
+
+.cl-formFieldInput {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #09090b !important;
+  height: 54px !important;
+  border-radius: 16px !important;
+  font-size: 15px !important;
+}
+
+.cl-formButtonPrimary {
+  height: 54px !important;
+  border-radius: 9999px !important;
+  font-size: 15px !important;
+  background-color: #7042f4 !important;
+}
+
+

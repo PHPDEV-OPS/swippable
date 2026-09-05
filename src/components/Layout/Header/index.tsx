@@ -76,14 +76,14 @@ const Header: React.FC = () => {
             ) : (
               <>
                 <Link
-                  href='/signin'
-                  className='bg-transparent border border-primary text-primary px-4 py-2 rounded-lg hover:bg-blue-600 hover:text-white'
+                  href='/sign-in'
+                  className='bg-transparent border border-primary text-primary px-4 py-2 rounded-lg hover:bg-primary hover:text-white transition-all'
                 >
                   Sign In
                 </Link>
                 <Link
-                  href='/signup'
-                  className='bg-primary text-white px-4 py-2 rounded-lg hover:bg-transparent hover:text-primary border border-primary'
+                  href='/sign-up'
+                  className='bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white px-4 py-2 rounded-lg hover:opacity-95 border border-purple-500/30 transition-all shadow-md shadow-purple-500/20'
                 >
                   Sign Up
                 </Link>
@@ -133,15 +133,15 @@ const Header: React.FC = () => {
               ) : (
                 <>
                   <Link
-                    href='/signin'
-                    className='bg-transparent border border-primary text-primary px-4 py-2 rounded-lg hover:bg-blue-600 hover:text-white text-center'
+                    href='/sign-in'
+                    className='bg-transparent border border-primary text-primary px-4 py-2 rounded-lg hover:bg-primary hover:text-white text-center transition-all'
                     onClick={() => setNavbarOpen(false)}
                   >
                     Sign In
                   </Link>
                   <Link
-                    href='/signup'
-                    className='bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-center'
+                    href='/sign-up'
+                    className='bg-gradient-to-r from-[#6330cf] to-[#8553ec] text-white px-4 py-2 rounded-lg hover:opacity-95 text-center transition-all shadow-md shadow-purple-500/20'
                     onClick={() => setNavbarOpen(false)}
                   >
                     Sign Up
