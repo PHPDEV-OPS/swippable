@@ -4,6 +4,7 @@ import './globals.css'
 import { Providers } from './providers'
 import Aoscompo from '@/utils/aos'
 import ConditionalLayout from '@/components/Layout/ConditionalLayout'
+import { Analytics } from '@vercel/analytics/next';
 
 const font = DM_Sans({ subsets: ['latin'] })
 
@@ -24,6 +25,7 @@ export default function RootLayout({
           </Aoscompo>
           </Providers>
         </ClerkProvider>
+        <Analytics />
       </body>
     </html>
   )
