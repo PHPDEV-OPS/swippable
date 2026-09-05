@@ -315,7 +315,7 @@ export function Overview() {
                     transition={{ duration: 0.35 }}
                     className="flex flex-col lg:col-span-4 xl:col-span-4"
                 >
-                    <section className="group relative flex flex-1 flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_12px_36px_rgba(112,66,244,0.06)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none">
+                    <div className="group relative flex flex-1 flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_12px_36px_rgba(112,66,244,0.06)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none">
                         <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
@@ -366,7 +366,7 @@ export function Overview() {
                                 <ArrowUpRight size={13} />
                             </Link>
                         </div>
-                    </section>
+                    </div>
                 </motion.div>
 
                 {/* Stats + activity */}
