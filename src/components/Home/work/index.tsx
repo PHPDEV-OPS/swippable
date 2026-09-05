@@ -1,6 +1,6 @@
 'use client'
 import { motion } from 'framer-motion'
-import { WalletActivityIllustration } from '../illustrations'
+import { WalletShowcase } from '../showcase'
 
 const services = [
   'One shared wallet balance',
@@ -65,7 +65,7 @@ const Work = () => {
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, delay: 0.12, ease: 'easeOut' }}
             className='col-span-12 lg:col-span-5'>
-            <WalletActivityIllustration className='mx-auto h-auto w-full max-w-[520px]' />
+            <WalletShowcase />
           </motion.div>
         </div>
       </div>

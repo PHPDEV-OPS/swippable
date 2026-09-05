@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
-import { WalletPhoneIllustration } from '../illustrations'
+import { HeroShowcase } from '../showcase'
 
 /**
  * Landing hero.
@@ -85,8 +85,8 @@ const Hero = () => {
             initial={{ opacity: 0, y: 32, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.7, ease: 'easeOut', delay: 0.1 }}
-            className='relative'>
-            <WalletPhoneIllustration className='mx-auto h-auto w-full max-w-[520px]' />
+            className='relative pb-12'>
+            <HeroShowcase />
           </motion.div>
         </div>
 

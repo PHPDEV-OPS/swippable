@@ -2,7 +2,7 @@
 import Image from 'next/image'
 import { portfolioData } from '@/app/api/data'
 import { motion } from 'framer-motion'
-import { DashboardPreviewIllustration } from '../illustrations'
+import { DashboardShowcase } from '../showcase'
 
 const Portfolio = () => {
   return (
@@ -14,7 +14,7 @@ const Portfolio = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}>
-            <DashboardPreviewIllustration className='mx-auto h-auto w-full max-w-[600px]' />
+            <DashboardShowcase />
           </motion.div>
 
           <motion.div
