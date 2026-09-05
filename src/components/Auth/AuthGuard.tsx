@@ -3,7 +3,7 @@
 import { useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import Loader from '../Common/Loader'
+import BrandLoader from '../Common/BrandLoader'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -18,7 +18,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   }, [isLoaded, isSignedIn, router])
 
   if (!isLoaded) {
-    return <Loader />
+    return <BrandLoader label="Signing you in" />
   }
 
   if (!isSignedIn) {

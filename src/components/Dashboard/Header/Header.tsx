@@ -82,7 +82,7 @@ export function DashboardHeader() {
                     >
                         <div className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-[#6330cf] via-[#7c48ea] to-[#925FFF] shadow-sm">
                             <Image
-                                src="/images/logo/logo.svg"
+                                src="/images/logo/logo-mark.svg"
                                 alt="Swippable"
                                 width={22}
                                 height={22}

@@ -234,6 +234,50 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Swippable loading state. The bars scale from their left edge so the line
+   reads as a dash travelling rightwards rather than three separate blinks. */
+@keyframes swippable-dash {
+  0%,
+  100% {
+    transform: scaleX(0.28);
+    opacity: 0.35;
+  }
+  45% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes swippable-dot {
+  0%,
+  100% {
+    transform: scale(0.55);
+    opacity: 0.35;
+  }
+  45% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes swippable-mark {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*='animate-[swippable-'] {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 /*
   Layered deliberately: unlayered CSS outranks Tailwind's utilities, so an
   unlayered `section` rule silently overrode `bg-white` on any <section> and
