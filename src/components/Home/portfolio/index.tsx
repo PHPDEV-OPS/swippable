@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { portfolioData } from '@/app/api/data'
 import { motion } from 'framer-motion'
 import { DashboardShowcase } from '../showcase'
+import { LottieScene } from '../showcase/LottieScene'
 
 const Portfolio = () => {
   return (
@@ -14,7 +15,14 @@ const Portfolio = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}>
-            <DashboardShowcase />
+            {/* Motion scene for this section; falls back to the dashboard
+                capture until the Lottie export is present. */}
+            <LottieScene
+              src='/animations/scene.json'
+              ariaLabel='Swippable cards animating into a stack'
+              className='mx-auto max-w-[620px]'
+              fallback={<DashboardShowcase />}
+            />
           </motion.div>
 
           <motion.div
