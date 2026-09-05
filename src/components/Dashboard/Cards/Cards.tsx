@@ -191,19 +191,32 @@ const Cards = () => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,340px)_1fr]">
                 {/* Card list */}
-                <div className="space-y-5">
-                    <h2 className="px-1 text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
-                        My Wallet
-                    </h2>
-                    <div className="grid gap-5">
+                <div className="space-y-4">
+                    <div className="flex items-baseline justify-between px-1">
+                        <h2 className="text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
+                            My Wallet
+                        </h2>
+                        {cards.length > 1 && (
+                            <span className="text-[11px] font-medium text-[#9a9ca4] xl:hidden">
+                                Swipe to browse
+                            </span>
+                        )}
+                    </div>
+
+                    {/*
+                      Below xl the cards scroll horizontally, so the management
+                      panel stays within reach instead of sitting below every
+                      card in the wallet.
+                    */}
+                    <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-3 scrollbar-none xl:mx-0 xl:grid xl:snap-none xl:gap-5 xl:overflow-visible xl:px-0 xl:pb-0">
                         {cardsQuery.isLoading ? (
-                            <div className="rounded-3xl border border-black/[0.04] bg-white p-10 text-center text-[#777984] dark:border-white/[0.06] dark:bg-[#121214] dark:text-[#888a93]">
+                            <div className="w-full rounded-3xl border border-black/[0.04] bg-white p-10 text-center text-[#777984] dark:border-white/[0.06] dark:bg-[#121214] dark:text-[#888a93]">
                                 Loading cards…
                             </div>
                         ) : cards.length === 0 ? (
-                            <div className="space-y-4 rounded-3xl border border-dashed border-black/[0.08] bg-white p-10 text-center dark:border-white/10 dark:bg-[#121214]">
+                            <div className="w-full space-y-4 rounded-3xl border border-dashed border-black/[0.08] bg-white p-10 text-center dark:border-white/10 dark:bg-[#121214]">
                                 <p className="text-sm text-[#777984] dark:text-[#888a93]">
                                     No cards yet. Issue one to allocate part of your wallet balance to it.
                                 </p>
@@ -226,7 +239,7 @@ const Cards = () => {
                                         setRevealed(null)
                                         setRevealError(null)
                                     }}
-                                    className={`cursor-pointer rounded-[7%/11%] transition-all ${
+                                    className={`w-[260px] shrink-0 snap-center cursor-pointer rounded-[7%/11%] transition-all sm:w-[300px] xl:w-full ${
                                         selectedCard?.cardId === card.cardId
                                             ? 'ring-3 ring-[#7042f4] ring-offset-4 ring-offset-[#f5f5f7] dark:ring-offset-[#080808]'
                                             : 'opacity-95 hover:opacity-100'
@@ -248,13 +261,19 @@ const Cards = () => {
                     </div>
                 </div>
 
-                {/* Card management */}
-                <div className="space-y-6">
+                {/* Card management. Sticky on wide screens so it stays beside the
+                    card list however far the list scrolls. */}
+                <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
                     {selectedCard && (
                         <div className="rounded-[2rem] border border-black/[0.05] bg-white p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214]">
-                            <h2 className="mb-6 text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
-                                Card Management
-                            </h2>
+                            <div className="mb-6 flex items-center justify-between gap-3">
+                                <h2 className="text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
+                                    Card Management
+                                </h2>
+                                <span className="rounded-full bg-[#f0eaff] px-2.5 py-1 font-mono text-[11px] font-bold text-[#6330cf] dark:bg-[#281b45] dark:text-[#c4a8ff]">
+                                    •••• {selectedCard.last4}
+                                </span>
+                            </div>
                             <div className="space-y-3">
                                 <ManagementRow
                                     icon="solar:card-send-linear"

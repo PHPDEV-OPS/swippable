@@ -1,26 +1,47 @@
 'use client'
 
-import { Icon } from '@iconify/react'
+import {
+    ArrowDownLeft,
+    ArrowUpRight,
+    Banknote,
+    Bus,
+    CreditCard,
+    Laptop,
+    Search,
+    ShieldCheck,
+    ShoppingBag,
+    Smartphone,
+    Plane,
+    Popcorn,
+    ReceiptText,
+    RotateCcw,
+    Stethoscope,
+    UtensilsCrossed,
+    Wallet,
+    type LucideIcon,
+} from 'lucide-react'
 import { motion } from 'framer-motion'
 import React, { useMemo, useState } from 'react'
 import { formatMoney, subtract, sum } from '@/lib/money'
 import { useTransactions } from '@/lib/client-api'
 import type { LedgerTransaction } from '@/types/api'
 
-const categoryIcons: Record<string, string> = {
-    Technology: 'solar:laptop-minimalistic-linear',
-    'M-Pesa Deposit': 'solar:phone-calling-linear',
-    'Crypto Deposit': 'solar:wallet-money-linear',
-    'Card Funding': 'solar:card-transfer-linear',
-    'Food & Drinks': 'solar:cup-first-linear',
-    Entertainment: 'solar:shop-2-linear',
-    Transport: 'solar:wheel-linear',
-    Travel: 'solar:plane-linear',
-    Shopping: 'solar:bag-heart-linear',
-    'Bills & Utilities': 'solar:bill-list-linear',
-    Healthcare: 'solar:health-linear',
-    Refund: 'solar:rewind-back-linear',
-    Other: 'solar:card-linear',
+const categoryIcons: Record<string, LucideIcon> = {
+    Technology: Laptop,
+    'M-Pesa Deposit': Smartphone,
+    'Crypto Deposit': Wallet,
+    'Card Funding': CreditCard,
+    'Food & Drinks': UtensilsCrossed,
+    Entertainment: Popcorn,
+    Transport: Bus,
+    Travel: Plane,
+    Shopping: ShoppingBag,
+    'Bills & Utilities': ReceiptText,
+    Healthcare: Stethoscope,
+    Refund: RotateCcw,
+    'Card Spending': CreditCard,
+    Transfer: Banknote,
+    Other: CreditCard,
 }
 
 const Transactions = () => {
@@ -60,21 +81,21 @@ const Transactions = () => {
         {
             label: 'Total Inflow',
             value: stats.inflow,
-            icon: 'solar:arrow-bottom-left-linear',
+            icon: ArrowDownLeft,
             color: 'text-[#12b88f]',
             bg: 'bg-[#e7faf4] dark:bg-[#0b3c32]',
         },
         {
             label: 'Total Outflow',
             value: stats.outflow,
-            icon: 'solar:arrow-top-right-linear',
+            icon: ArrowUpRight,
             color: 'text-[#ef5362]',
             bg: 'bg-[#ffebeb] dark:bg-[#3c151a]',
         },
         {
             label: 'Net Position',
             value: stats.net,
-            icon: 'solar:safe-linear',
+            icon: ShieldCheck,
             color: 'text-[#7042f4] dark:text-[#c4a8ff]',
             bg: 'bg-[#f4f0ff] dark:bg-[#281b45]',
         },
@@ -128,7 +149,7 @@ const Transactions = () => {
                             <div
                                 className={`flex h-11 w-11 items-center justify-center rounded-2xl ${stat.bg} ${stat.color}`}
                             >
-                                <Icon icon={stat.icon} width="22" height="22" />
+                                <stat.icon size={22} />
                             </div>
                             <span className="text-xs font-bold uppercase tracking-wider text-[#777984] dark:text-[#888a93]">
                                 {stat.label}
@@ -148,11 +169,9 @@ const Transactions = () => {
                         Payment Records
                     </h2>
                     <div className="relative w-full sm:w-72">
-                        <Icon
-                            icon="solar:magnifer-linear"
+                        <Search
                             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9a9ca4]"
-                            width="18"
-                            height="18"
+                            size={18}
                         />
                         <input
                             type="text"
@@ -209,11 +228,10 @@ const Transactions = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5f5f7] text-[#6330cf] shadow-sm dark:bg-white/5 dark:text-[#c4a8ff]">
-                                                    <Icon
-                                                        icon={categoryIcons[tx.category] ?? categoryIcons.Other}
-                                                        width="18"
-                                                        height="18"
-                                                    />
+                                                    {React.createElement(
+                                                        categoryIcons[tx.category] ?? categoryIcons.Other,
+                                                        { size: 18 }
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <span className="font-bold text-[#1c1c24] dark:text-white">

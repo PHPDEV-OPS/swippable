@@ -38,11 +38,11 @@ export function Sidebar() {
                 <div className="h-full flex flex-col p-6">
                     <div className="flex items-center gap-3 px-2 mb-10">
                         <Image
-                            src="/images/logo/logo.svg"
+                            src="/images/logo/logo-mark.svg"
                             alt="logo"
                             width={32}
                             height={32}
-                            className="w-8 h-8 [filter:hue-rotate(115deg)_saturate(1.2)]"
+                            className="w-8 h-8"
                         />
                         <span className="text-xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent uppercase tracking-tighter">Swippable</span>
                     </div>
