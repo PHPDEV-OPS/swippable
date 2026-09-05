@@ -219,7 +219,7 @@ function CardFront({ card, animate }: { card: VirtualCard; animate: boolean }) {
     const paused = card.status !== 'ACTIVE'
 
     return (
-        <div className="relative h-full w-full overflow-hidden rounded-[6.5%/10.3%] shadow-[0_18px_40px_-12px_rgba(60,26,140,0.55)]">
+        <div className="relative h-full w-full overflow-hidden rounded-[6.5%/10.3%] shadow-[0_1px_2px_rgba(26,16,48,0.10),0_8px_18px_-10px_rgba(26,16,48,0.28)] dark:shadow-[0_18px_40px_-12px_rgba(60,26,140,0.55)]">
             <svg
                 ref={rootRef}
                 viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
@@ -407,7 +407,7 @@ function CardBack({
     onReveal?: () => void
 }) {
     return (
-        <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[6.5%/10.3%] bg-gradient-to-br from-[#241546] via-[#1a1030] to-[#12092a] shadow-[0_18px_40px_-12px_rgba(60,26,140,0.55)]">
+        <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[6.5%/10.3%] bg-gradient-to-br from-[#241546] via-[#1a1030] to-[#12092a] shadow-[0_1px_2px_rgba(26,16,48,0.10),0_8px_18px_-10px_rgba(26,16,48,0.28)] dark:shadow-[0_18px_40px_-12px_rgba(60,26,140,0.55)]">
             {/* Magnetic stripe */}
             <div className="mt-[9%] h-[17%] w-full bg-[#0b0618]" />
 

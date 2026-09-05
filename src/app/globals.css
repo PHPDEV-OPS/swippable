@@ -234,8 +234,16 @@ html {
   scroll-behavior: smooth;
 }
 
-section {
-  @apply bg-background;
+/*
+  Layered deliberately: unlayered CSS outranks Tailwind's utilities, so an
+  unlayered `section` rule silently overrode `bg-white` on any <section> and
+  painted it with --background (black). Inside @layer base, sections still pick
+  up the page background by default, but an explicit bg-* utility now wins.
+*/
+@layer base {
+  section {
+    @apply bg-background;
+  }
 }
 
 .blog-details p,
@@ -349,4 +357,4 @@ section {
   background-color: #7042f4 !important;
 }
 
-
+
