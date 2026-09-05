@@ -7,11 +7,11 @@ const Perks = () => {
       <div className='container px-4 relative z-2'>
         <div className='text-center'>
           <div className='flex flex-col gap-4'>
-            <p className="text-muted text-base relative">
-              Always By <span className='text-primary'>your side</span>
+            <p className="relative text-base text-white/70">
+              Always by <span className='text-primary'>your side</span>
             </p>
             <h2 className='text-white sm:text-5xl text-3xl font-medium'>
-              Experience Swippable's payment platform
+              Built for how money actually moves
             </h2>
           </div>
           <div className='mt-16 border border-border grid lg:grid-cols-3 sm:grid-cols-2 py-16 gap-10 px-20 rounded-3xl sm:bg-perk bg-dark_grey/35 lg:bg-bottom bg-center bg-no-repeat'>

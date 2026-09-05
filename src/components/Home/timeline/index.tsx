@@ -1,26 +1,18 @@
 'use client'
 import Image from 'next/image'
 import { timelineData } from '@/app/api/data'
-import { motion, useInView } from 'framer-motion'
-import { useRef } from 'react'
+import { motion } from 'framer-motion'
 
 const TimeLine = () => {
-  const ref = useRef(null)
-  const inView = useInView(ref)
-
-  const TopAnimation = {
-    initial: { y: '-100%', opacity: 0 },
-    animate: inView ? { y: 0, opacity: 1 } : { y: '-100%', opacity: 0 },
-    transition: { duration: 0.6, delay: 0.4 },
-  }
   return (
     <section className='md:pt-40 pt-9' id='development'>
       <div className='container lg:px-16 px-4'>
         <div className='text-center'>
           <motion.div
-            whileInView={{ y: 0, opacity: 1 }}
-            initial={{ y: '-100%', opacity: 0 }}
-            transition={{ duration: 0.6 }}>
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}>
             <div className='flex flex-col gap-4'>
               <p className='text-white font-medium'>
                 We deliver <span className='text-primary'>best solution</span>
@@ -31,9 +23,10 @@ const TimeLine = () => {
             </div>
           </motion.div>
           <motion.div
-            whileInView={{ scale: 1, opacity: 1 }}
-            initial={{ scale: 0.8, opacity: 0 }}
-            transition={{ duration: 0.6 }}>
+            initial={{ opacity: 0, scale: 0.94 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, amount: 0.25 }}
+            transition={{ duration: 0.65, ease: 'easeOut' }}>
             <div className='lg:block hidden relative'>
               <div>
                 <Image

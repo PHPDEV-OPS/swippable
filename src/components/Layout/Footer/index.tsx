@@ -77,7 +77,9 @@ const Footer: FC = () => {
             </div>
           </div>
         </div>
-        <p className='text-white/40 text-center py-8 border-t border-white/10'>Managed by <Link className='hover:text-primary' href={"#"}>Stahiki Platforms</Link></p>
+        <p className='text-white/40 text-center py-8 border-t border-white/10'>
+          &copy; {new Date().getFullYear()} Swippable. All rights reserved.
+        </p>
       </div>
     </footer>
   )

@@ -1,7 +1,7 @@
 // components/Faq.js
 'use client';
-import Image from 'next/image';
-import React, { useState } from 'react';// Optional: install lucide-react icons
+import React, { useState } from 'react';
+import { Plus } from 'lucide-react';
 
 const faqData = [
     {
@@ -31,9 +31,9 @@ const faqData = [
 ];
 
 const Faq = () => {
-    const [openIndex, setOpenIndex] = useState(null);
+    const [openIndex, setOpenIndex] = useState<number | null>(null);
 
-    const toggleFAQ = (index: any) => {
+    const toggleFAQ = (index: number) => {
         setOpenIndex(openIndex === index ? null : index);
     };
 
@@ -44,31 +44,31 @@ const Faq = () => {
                     <div className="text-center mb-10">
                         <p className="text-primary uppercase text-sm">Popular questions</p>
                         <h2 className="text-3xl md:text-4xl font-semibold mt-2">Learn more about Swippable</h2>
-                        <p className="text-gray-400 mt-2">Secure payments and virtual cards for Africa</p>
+                        <p className="mt-2 text-white/60">Secure payments and virtual cards for Africa</p>
                     </div>
                     <div className="space-y-4">
                         {faqData.map((item, index) => (
                             <div
                                 key={index}
-                                className="bg-white/5 rounded-lg p-4 cursor-pointer transition-all duration-300"
+                                className="cursor-pointer rounded-xl border border-white/5 bg-white/5 p-4 transition-colors duration-300 hover:border-primary/25 hover:bg-white/[0.07]"
                                 onClick={() => toggleFAQ(index)}
                             >
                                 <div className="flex justify-between items-center">
                                     <h3 className="text-lg font-medium">{item.question}</h3>
-                                    <Image
-                                        src={"/images/icons/plus-icon.svg"}
-                                        alt='plus-icon'
-                                        width={20}
-                                        height={20}
-                                        className={`transform transition-transform duration-300 ${openIndex === index ? 'rotate-45' : ''}`}
+                                    <Plus
+                                        size={20}
+                                        className={`shrink-0 text-primary transition-transform duration-300 ${
+                                            openIndex === index ? 'rotate-45' : ''
+                                        }`}
                                     />
                                 </div>
 
                                 <div
-                                    className={`mt-2 text-gray-400 overflow-hidden transition-all duration-500 ease-in-out ${openIndex === index ? 'max-h-40 visible' : 'max-h-0 hidden'
-                                        }`}
+                                    className={`grid overflow-hidden text-white/60 transition-all duration-300 ease-out ${
+                                        openIndex === index ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                                    }`}
                                 >
-                                    <p className="py-2">{item.answer}</p>
+                                    <p className="min-h-0 pt-2">{item.answer}</p>
                                 </div>
                             </div>
                         ))}

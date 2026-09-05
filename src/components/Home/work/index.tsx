@@ -1,84 +1,71 @@
 'use client'
-import Image from 'next/image'
-import { motion, useInView } from 'framer-motion'
-import { useRef } from 'react'
+import { motion } from 'framer-motion'
+import { WalletActivityIllustration } from '../illustrations'
+
+const services = [
+  'One shared wallet balance',
+  'Instant virtual card issuing',
+  'M-Pesa and USDC top-ups',
+  'Per-card spending limits',
+]
 
 const Work = () => {
-  const ref = useRef(null)
-  const inView = useInView(ref)
-
-  const TopAnimation = {
-    initial: { y: '-100%', opacity: 0 },
-    animate: inView ? { y: 0, opacity: 1 } : { y: '-100%', opacity: 0 },
-    transition: { duration: 0.6, delay: 0.4 },
-  }
-
-  const bottomAnimation = {
-    initial: { y: '100%', opacity: 0 },
-    animate: inView ? { y: 0, opacity: 1 } : { y: '100%', opacity: 0 },
-    transition: { duration: 0.6, delay: 0.4 },
-  }
-
-  const services = [
-    {
-      icon: '/images/chooseus/chooseus-icon-1.svg',
-      text: 'Secure Wallet Management',
-    },
-    {
-      icon: '/images/chooseus/chooseus-icon-2.svg',
-      text: 'Virtual Card Generation',
-    },
-    {
-      icon: '/images/chooseus/chooseus-icon-3.svg',
-      text: 'Low-Connectivity Payments',
-    },
-    {
-      icon: '/images/chooseus/chooseus-icon-2.svg',
-      text: 'USSD Payment Integration',
-    },
-  ]
-
   return (
-    <section className='' id='work'>
-      <div className='container px-4 mx-auto lg:max-w-(--breakpoint-xl)'>
-        <div ref={ref} className='grid grid-cols-12 items-center'>
+    <section className='py-16 sm:py-20' id='work'>
+      <div className='container mx-auto px-4 lg:max-w-(--breakpoint-xl)'>
+        <div className='grid grid-cols-12 items-center gap-10'>
           <motion.div
-            {...bottomAnimation}
-            className='lg:col-span-7 col-span-12'>
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+            className='col-span-12 lg:col-span-7'>
             <div className='flex flex-col gap-3'>
-              <p className="text-white font-medium">
+              <p className='font-medium text-white'>
                 Why choose <span className='text-primary'>Swippable</span>
               </p>
-              <h2 className='sm:text-5xl text-3xl text-white lg:w-full md:w-70% font-medium'>
-                Features of the Swippable payment platform
+              <h2 className='text-3xl font-medium text-white sm:text-5xl'>
+                Everything your money does, in one place
               </h2>
+              <p className='mt-2 max-w-xl text-lg text-white/60'>
+                Fund the wallet once, then spend from it through as many virtual cards as you
+                need. Every card draws on the same balance, so nothing sits stranded.
+              </p>
             </div>
-            <div className='grid md:grid-cols-2 gap-7 mt-11'>
+
+            <div className='mt-10 grid gap-6 md:grid-cols-2'>
               {services.map((service, index) => (
-                <div key={index} className='flex items-center gap-5'>
-                  <div className='p-3 bg-primary/15 rounded-full'>
-                    <Image
-                      src={service.icon}
-                      alt={`${service.text} icon`}
-                      width={25}
-                      height={25}
-                    />
-                  </div>
-                  <p className='text-white font-medium'>{service.text}</p>
-                </div>
+                <motion.div
+                  key={service}
+                  initial={{ opacity: 0, y: 14 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: index * 0.08, ease: 'easeOut' }}
+                  className='flex items-center gap-4'>
+                  <span className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary'>
+                    <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' aria-hidden>
+                      <path
+                        d='M4 10.5 8 14.5 16 6'
+                        stroke='currentColor'
+                        strokeWidth='2.2'
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                      />
+                    </svg>
+                  </span>
+                  <p className='font-medium text-white'>{service}</p>
+                </motion.div>
               ))}
             </div>
           </motion.div>
-          <motion.div {...TopAnimation} className='lg:col-span-5 col-span-12'>
-            <div className='2xl:-mr-40 mt-9 flex justify-center'>
-              <Image
-                src='/images/work/img-work-with-us.png'
-                alt='image'
-                width={600}
-                height={425}
-                className='lg:w-full'
-              />
-            </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.12, ease: 'easeOut' }}
+            className='col-span-12 lg:col-span-5'>
+            <WalletActivityIllustration className='mx-auto h-auto w-full max-w-[520px]' />
           </motion.div>
         </div>
       </div>

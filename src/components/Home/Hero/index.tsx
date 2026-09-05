@@ -1,139 +1,97 @@
 'use client'
 import Link from 'next/link'
-import Image from 'next/image'
 import { motion } from 'framer-motion'
-import BuyCrypto from './buy-form'
-import SellCrypto from './sell-form'
-import CardSlider from './slider'
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { Icon } from '@iconify/react/dist/iconify.js'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
+import { WalletPhoneIllustration } from '../illustrations'
+
+/**
+ * Landing hero.
+ *
+ * Entrances move a short distance rather than sliding in from off-screen: the
+ * old `x: '-100%'` transforms pushed content outside the viewport on the way
+ * in, which caused a horizontal scrollbar flash on narrow screens.
+ */
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0 },
+}
 
 const Hero = () => {
-  const [isBuying, setIsBuyingOpen] = useState(false)
-  const [isSelling, setIsSellingOpen] = useState(false)
-  const BuyRef = useRef<HTMLDivElement>(null)
-  const SellRef = useRef<HTMLDivElement>(null)
-
-  const handleClickOutside = useCallback(
-    (event: MouseEvent) => {
-      if (BuyRef.current && !BuyRef.current.contains(event.target as Node)) {
-        setIsBuyingOpen(false)
-      }
-      if (SellRef.current && !SellRef.current.contains(event.target as Node)) {
-        setIsSellingOpen(false)
-      }
-    },
-    [BuyRef, SellRef]
-  )
-
-  useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [handleClickOutside])
-
-  useEffect(() => {
-    document.body.style.overflow = isBuying || isSelling ? 'hidden' : ''
-  }, [isBuying, isSelling])
-
-  const leftAnimation = {
-    initial: { x: '-100%', opacity: 0 },
-    animate: { x: 0, opacity: 1 },
-    exit: { x: '-100%', opacity: 0 },
-    transition: { duration: 0.6 },
-  }
-
-  const rightAnimation = {
-    initial: { x: '100%', opacity: 0 },
-    animate: { x: 0, opacity: 1 },
-    exit: { x: '100%', opacity: 0 },
-    transition: { duration: 0.6 },
-  }
-
   return (
-    <section
-      className='relative py-24 pt-48 overflow-hidden z-1'
-      id='main-banner'>
-      <div className='container'>
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-10'>
-          <motion.div {...leftAnimation} className='flex flex-col gap-10'>
-            <div className='flex flex-col gap-4 text-center md:text-left'>
-              <div className='flex gap-6 items-center lg:justify-start justify-center'>
-                <div className='py-1.5 px-4 bg-primary/10 rounded-full border border-white/10'>
-                  <span className='text-primary font-medium'>Secure Payments for Africa</span>
-                </div>
+    <section className='relative z-1 overflow-hidden py-24 pt-40 sm:pt-48' id='main-banner'>
+      {/* Brand wash behind the fold */}
+      <div
+        aria-hidden
+        className='pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full opacity-40 blur-[140px]'
+        style={{ background: 'radial-gradient(circle, #7042f4 0%, #12b88f 55%, transparent 75%)' }}
+      />
+
+      <div className='container relative'>
+        <div className='grid grid-cols-1 items-center gap-12 md:grid-cols-2 md:gap-10'>
+          <motion.div
+            {...fadeUp}
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+            className='flex flex-col gap-8'>
+            <div className='flex flex-col gap-5 text-center md:text-left'>
+              <div className='flex items-center justify-center lg:justify-start'>
+                <span className='inline-flex items-center gap-2 rounded-full border border-white/10 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary'>
+                  <ShieldCheck size={15} />
+                  Secure payments for Africa
+                </span>
               </div>
-              <h1 className='font-medium xl:text-[72px] md:text-6xl sm:text-5xl text-4xl md:text-start text-center text-white'>
-                Fast, Secure Payments and Virtual Cards
+
+              <h1 className='text-center text-4xl font-medium text-white sm:text-5xl md:text-start md:text-6xl xl:text-[68px] xl:leading-[1.08]'>
+                One wallet. <span className='text-primary'>Unlimited</span> virtual cards.
               </h1>
-              <p className='text-white'>Manage your wallet, generate virtual cards, and make payments with ease on Swippable - Kenya's leading payment platform.</p>
+
+              <p className='text-lg text-white/70'>
+                Top up once with M-Pesa or USDC, then issue virtual cards that all spend from the
+                same balance &mdash; each with its own limit, pausable in a tap.
+              </p>
             </div>
-            <div className='flex items-center md:justify-start justify-center gap-8'>
-              <Link href={"/#work"}
-                className='bg-gradient-to-r from-[#6330cf] to-[#8553ec] hover:opacity-95 flex items-center gap-2 border border-purple-500/30 rounded-lg font-semibold text-white py-3 px-7 cursor-pointer shadow-lg shadow-purple-500/20 transition-all'>
+
+            <div className='flex flex-col items-center gap-4 sm:flex-row md:justify-start'>
+              <Link
+                href='/sign-up'
+                className='flex items-center gap-2 rounded-lg border border-purple-500/30 bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-7 py-3 font-semibold text-white shadow-lg shadow-purple-500/20 transition-all hover:opacity-95'>
                 Get Started
-                <Image src={"/images/icons/icon-arrow.svg"} alt='arrow-icon' width={20} height={20} className='brightness-0 invert' />
+                <ArrowRight size={18} />
+              </Link>
+              <Link
+                href='/#work'
+                className='rounded-lg border border-white/15 px-7 py-3 font-semibold text-white/80 transition-colors hover:border-white/30 hover:text-white'>
+                See how it works
               </Link>
             </div>
-          </motion.div>
-          <motion.div
-            {...rightAnimation}
-            className=''>
-            <div className='w-full h-full relative'>
-              <Image
-                src='/images/hero/hero-banner-img.png'
-                alt='Banner'
-                width={584}
-                height={582}
-                className='w-full h-full'
-              />
-              <div className='absolute top-0 left-0 w-1/3 h-1/3 bg-cover bg-no-repeat blur-sm opacity-80' style={{ backgroundImage: 'url(/images/hero/hero-banner-img.png)' }}></div>
-            </div>
-          </motion.div>
-        </div>
-        <BrandLogo />
-        <CardSlider />
-      </div>
 
-      {/* Modals for Buy and Sell */}
-      {isBuying && (
-        <div className='fixed top-0 left-0 w-full h-full bg-black/50 flex items-center justify-center z-50'>
-          <div
-            ref={BuyRef}
-            className='relative w-full max-w-md overflow-hidden rounded-lg px-8 pt-14 pb-8 z-999 text-center bg-dark_grey/90 backdrop-blur-md'>
-            <button
-              onClick={() => setIsBuyingOpen(false)}
-              className='absolute top-0 right-0 mr-8 mt-8 dark:invert'
-              aria-label='Close Buy Modal'>
-              <Icon
-                icon='tabler:currency-xrp'
-                className='text-white hover:text-primary text-24 inline-block me-2'
-              />
-            </button>
-            <BuyCrypto />
-          </div>
+            {/* Concrete proof points instead of a crypto price ticker, which
+                described a product this platform is not. */}
+            <dl className='grid grid-cols-3 gap-4 border-t border-white/10 pt-6 text-center md:text-left'>
+              {[
+                { value: 'Instant', label: 'Card issuing' },
+                { value: 'M-Pesa', label: 'and USDC top-ups' },
+                { value: 'Per-card', label: 'spending limits' },
+              ].map((stat) => (
+                <div key={stat.label}>
+                  <dt className='text-lg font-semibold text-white'>{stat.value}</dt>
+                  <dd className='text-sm text-white/50'>{stat.label}</dd>
+                </div>
+              ))}
+            </dl>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 32, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.7, ease: 'easeOut', delay: 0.1 }}
+            className='relative'>
+            <WalletPhoneIllustration className='mx-auto h-auto w-full max-w-[520px]' />
+          </motion.div>
         </div>
-      )}
-      {isSelling && (
-        <div className='fixed top-0 left-0 w-full h-full bg-black/50 flex items-center justify-center z-50'>
-          <div
-            ref={SellRef}
-            className='relative w-full max-w-md overflow-hidden rounded-lg px-8 pt-14 pb-8 z-999 text-center bg-dark_grey/90 backdrop-blur-md'>
-            <button
-              onClick={() => setIsSellingOpen(false)}
-              className='absolute top-0 right-0 mr-8 mt-8 dark:invert'
-              aria-label='Close Sell Modal'>
-              <Icon
-                icon='tabler:currency-xrp'
-                className='text-white hover:text-primary text-24 inline-block me-2'
-              />
-            </button>
-            <SellCrypto />
-          </div>
-        </div>
-      )}
+
+        <BrandLogo />
+      </div>
     </section>
   )
 }

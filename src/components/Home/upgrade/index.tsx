@@ -1,50 +1,55 @@
+'use client'
 import { upgradeData } from '@/app/api/data'
-import Image from 'next/image'
-import { Icon } from '@iconify/react'
+import { motion } from 'framer-motion'
+import { Check } from 'lucide-react'
+import { CardLimitsIllustration } from '../illustrations'
 
 const Upgrade = () => {
   return (
     <section className='py-20' id='upgrade'>
       <div className='container px-4'>
-        <div className='grid lg:grid-cols-2 gap-10 items-center'>
-          <div>
-            <p className='text-white font-medium'>Swippable <span className='text-primary'>platform</span></p>
-            <h2 className='text-white sm:text-5xl text-3xl  font-medium mb-5'>
-              Power your payment business
-            </h2>
-            <p className='text-muted/60 text-lg mb-7'>
-              Experience faster, safer, and more reliable payment processing 
-              with Swippable's advanced technology designed for Africa.
+        <div className='grid items-center gap-10 lg:grid-cols-2'>
+          <motion.div
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}>
+            <p className='font-medium text-white'>
+              Swippable <span className='text-primary'>platform</span>
             </p>
-            <div className='grid sm:grid-cols-2  text-nowrap gap-5'>
+            <h2 className='mb-5 text-3xl font-medium text-white sm:text-5xl'>
+              Control every card, from one balance
+            </h2>
+            <p className='mb-7 text-lg text-white/60'>
+              Give each card its own limit, pause it in a tap, and release what it has not spent
+              back to your wallet. No capital sits idle.
+            </p>
+
+            <div className='grid gap-5 sm:grid-cols-2'>
               {upgradeData.map((item, index) => (
-                <div key={index} className='flex gap-5'>
-                  <div>
-                    <Icon
-                      icon='la:check-circle-solid'
-                      width='24'
-                      height='24'
-                      className='text-white group-hover:text-primary'
-                    />
-                  </div>
-                  <div>
-                    <h3 className='text-lg text-muted/60'>{item.title}</h3>
-                  </div>
-                </div>
+                <motion.div
+                  key={item.title}
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: index * 0.07, ease: 'easeOut' }}
+                  className='flex items-start gap-3'>
+                  <span className='mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary'>
+                    <Check size={13} strokeWidth={3} />
+                  </span>
+                  <h3 className='text-lg text-white/70'>{item.title}</h3>
+                </motion.div>
               ))}
             </div>
-          </div>
-          <div>
-            <div className='ml-0 lg:ml-7'>
-              <Image
-                src='/images/upgrade/img-upgrade.png'
-                alt='image'
-                width={625}
-                height={580}
-                className='-mr-5'
-              />
-            </div>
-          </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}>
+            <CardLimitsIllustration className='mx-auto h-auto w-full max-w-[540px]' />
+          </motion.div>
         </div>
       </div>
     </section>

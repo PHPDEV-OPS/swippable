@@ -2,6 +2,7 @@
 import Image from 'next/image'
 import { portfolioData } from '@/app/api/data'
 import { motion } from 'framer-motion'
+import { DashboardPreviewIllustration } from '../illustrations'
 
 const Portfolio = () => {
   return (
@@ -9,22 +10,18 @@ const Portfolio = () => {
       <div className='container px-4 sm:px-6'>
         <div className='grid lg:grid-cols-2 items-center gap-20'>
           <motion.div
-            whileInView={{ y: 0, opacity: 1 }}
-            initial={{ y: '-100%', opacity: 0 }}
-            transition={{ duration: 0.6 }}
-            className='lg:-ml-32'>
-            <Image
-              src='/images/portfolio/img-portfolio.png'
-              alt='Swippable Payment Dashboard'
-              width={780}
-              height={700}
-            />
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}>
+            <DashboardPreviewIllustration className='mx-auto h-auto w-full max-w-[600px]' />
           </motion.div>
 
           <motion.div
-            whileInView={{ y: 0, opacity: 1 }}
-            initial={{ y: '100%', opacity: 0 }}
-            transition={{ duration: 0.6 }}>
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}>
             <div className='flex flex-col gap-4'>
               <p className='text-white font-medium'>
                 Payment platform <span className='text-primary'>dashboard</span>
@@ -33,9 +30,9 @@ const Portfolio = () => {
                 Manage your payments and virtual cards securely
               </h2>
             </div>
-            <p className='text-muted/60 text-lg'>
-              Swippable provides a comprehensive dashboard for managing your payments, 
-              virtual cards, and transactions with bank-level security.
+            <p className='text-lg text-white/60'>
+              Track every balance, card limit and transaction from one dashboard &mdash; each figure
+              read straight from your ledger, never estimated.
             </p>
 
             <table className='w-full sm:w-[80%] mt-10'>
