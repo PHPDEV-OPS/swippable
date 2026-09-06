@@ -9,8 +9,12 @@ import {
     recordTransaction,
     reverseCardDebit,
 } from '@/lib/db'
+import { recordDecline } from '@/lib/admin-db'
+import { BLOCKED_MERCHANT_COUNTRIES, diagnose } from '@/lib/decline'
 import { verifyWebhookSignature } from '@/lib/flutterwave'
 import { decimal, formatMoney, gte, subtract } from '@/lib/money'
+import { isRailHalted } from '@/lib/platform'
+import type { DeclineCode } from '@/types/admin'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -139,7 +143,46 @@ async function handleEvent(eventType: string, data: Record<string, any>, eventId
         return { status: 'REFUNDED' }
     }
 
-    // 3. Verification checklist + wallet debit + ledger write, atomically.
+    // 3a. The kill switch, checked before anything reaches the issuer path.
+    // A halted rail declines rather than errors, so the processor still gets a
+    // conclusive answer and stops retrying.
+    if (await isRailHalted('CARD_AUTHORISATIONS')) {
+        const halted = await getCardByFlutterwaveId(cardId)
+        await recordDecline({
+            code: 'RAIL_HALTED',
+            processorMessage: 'Card authorisations halted platform-wide',
+            cardId: halted?.card_id ?? cardId,
+            cardLast4: halted?.last_4 ?? null,
+            userId: halted?.user_id ?? null,
+            amount,
+            currency,
+            merchant,
+            merchantCountry: merchantCountryOf(data),
+            metadata: { eventType, txId },
+        })
+        return { status: 'DECLINED', reason: 'card authorisations are halted platform-wide' }
+    }
+
+    // 3b. Country screening, which the issuer applies before any balance check.
+    const merchantCountry = merchantCountryOf(data)
+    if (merchantCountry && BLOCKED_MERCHANT_COUNTRIES.has(merchantCountry)) {
+        const blocked = await getCardByFlutterwaveId(cardId)
+        await recordDecline({
+            code: 'BLOCKED_MERCHANT_COUNTRY',
+            processorMessage: `Acquirer country ${merchantCountry} is blocked`,
+            cardId: blocked?.card_id ?? cardId,
+            cardLast4: blocked?.last_4 ?? null,
+            userId: blocked?.user_id ?? null,
+            amount,
+            currency,
+            merchant,
+            merchantCountry,
+            metadata: { eventType, txId },
+        })
+        return { status: 'DECLINED', reason: `blocked merchant country ${merchantCountry}` }
+    }
+
+    // 3c. Verification checklist + wallet debit + ledger write, atomically.
     const settled = await authoriseCardDebit({
         flutterwaveCardId: cardId,
         txId,
@@ -165,20 +208,61 @@ async function handleEvent(eventType: string, data: Record<string, any>, eventId
     const card = await getCardByFlutterwaveId(cardId)
 
     if (!card) {
+        await recordDecline({
+            code: 'UNKNOWN_CARD',
+            processorMessage: `No local card for ${cardId}`,
+            cardId,
+            amount,
+            currency,
+            merchant,
+            merchantCountry,
+            metadata: { eventType, txId },
+        })
         return { status: 'IGNORED', reason: `no local card for ${cardId}` }
     }
 
     const remaining = subtract(card.card_spending_limit, card.total_spent_by_card)
+
+    // The decline is classified against the same checks `authoriseCardDebit`
+    // just applied, in the same order, so the code the operator reads is the
+    // check that actually refused.
+    const code: DeclineCode =
+        String(card.account_status ?? 'ACTIVE').toUpperCase() !== 'ACTIVE'
+            ? 'ACCOUNT_FROZEN'
+            : card.status !== 'ACTIVE'
+              ? 'CARD_NOT_ACTIVE'
+              : !gte(remaining, amount)
+                ? 'CARD_LIMIT_EXCEEDED'
+                : !gte(card.wallet_balance, amount)
+                  ? 'INSUFFICIENT_WALLET_BALANCE'
+                  : 'DUPLICATE_TRANSACTION'
+
     const reason =
-        card.status !== 'ACTIVE'
-            ? 'card is not active'
-            : !gte(remaining, amount)
-              ? `amount exceeds remaining card limit (${remaining})`
-              : !gte(card.wallet_balance, amount)
-                ? `wallet balance ${card.wallet_balance} is below ${amount}`
-                : 'already recorded'
+        code === 'ACCOUNT_FROZEN'
+            ? `account is ${String(card.account_status).toLowerCase()}`
+            : code === 'CARD_NOT_ACTIVE'
+              ? 'card is not active'
+              : code === 'CARD_LIMIT_EXCEEDED'
+                ? `amount exceeds remaining card limit (${remaining})`
+                : code === 'INSUFFICIENT_WALLET_BALANCE'
+                  ? `wallet balance ${card.wallet_balance} is below ${amount}`
+                  : 'already recorded'
 
     console.warn(`[webhook:flutterwave-cards] declined ${txId} on card ${cardId}: ${reason}`)
+
+    // Feeds the superadmin decline diagnostics pane.
+    await recordDecline({
+        code,
+        processorMessage: diagnose(code).title,
+        cardId: card.card_id,
+        cardLast4: card.last_4,
+        userId: card.user_id,
+        amount,
+        currency,
+        merchant,
+        merchantCountry,
+        metadata: { eventType, txId, remaining, walletBalance: card.wallet_balance },
+    })
 
     await recordTransaction({
         txId,
@@ -191,7 +275,7 @@ async function handleEvent(eventType: string, data: Record<string, any>, eventId
         status: 'FAILED',
         merchant,
         category,
-        metadata: { eventType, declineReason: reason, raw: data },
+        metadata: { eventType, declineCode: code, declineReason: reason, raw: data },
     })
 
     await pushNotification(
@@ -202,6 +286,14 @@ async function handleEvent(eventType: string, data: Record<string, any>, eventId
     )
 
     return { status: 'DECLINED', reason }
+}
+
+/** Pulls the acquirer country out of whichever field the provider used. */
+function merchantCountryOf(data: Record<string, any>): string | null {
+    const raw = data.merchant_country ?? data.merchant?.country ?? data.country ?? data.acquirer_country
+    if (!raw) return null
+    const code = String(raw).trim().toUpperCase()
+    return /^[A-Z]{2}$/.test(code) ? code : null
 }
 
 /** Derives a spending category from the merchant descriptor for the charts. */

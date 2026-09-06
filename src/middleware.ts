@@ -1,6 +1,15 @@
-import { clerkMiddleware } from '@clerk/nextjs/server'
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-export default clerkMiddleware()
+/**
+ * The command center is never reachable anonymously. This only enforces
+ * "signed in" - whether the identity is actually a founder is decided by
+ * `requireAdmin` inside every /api/admin route, which is the real boundary.
+ */
+const isAdminRoute = createRouteMatcher(['/admin(.*)', '/api/admin(.*)'])
+
+export default clerkMiddleware(async (auth, request) => {
+    if (isAdminRoute(request)) await auth.protect()
+})
 
 export const config = {
     matcher: [

@@ -23,9 +23,14 @@ async function ensureSchema() {
       bridgecard_holder_id TEXT,
       wallet_balance NUMERIC(20,2) NOT NULL DEFAULT 0.00,
       currency TEXT NOT NULL DEFAULT 'USD',
+      account_status TEXT NOT NULL DEFAULT 'ACTIVE',
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`
         await sql`CREATE UNIQUE INDEX IF NOT EXISTS users_clerk_user_id_key ON users(clerk_user_id)`
+        // Lives here rather than in the admin schema because `authoriseCardDebit`
+        // reads it on the core authorisation path, which must work before an
+        // admin request has ever touched this database.
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'ACTIVE'`
 
         await sql`CREATE TABLE IF NOT EXISTS crypto_wallets (
       id SERIAL PRIMARY KEY,
@@ -162,6 +167,7 @@ export interface UserRow {
     kyc_status: string
     wallet_balance: string
     currency: string
+    account_status: string
     created_at: string
 }
 
@@ -424,12 +430,14 @@ export async function getCardsByUserId(userId: number) {
 export async function getCardByFlutterwaveId(flutterwaveCardId: string) {
     await ensureSchema()
     const rows = await sql`
-    SELECT c.*, u.wallet_balance, u.currency AS user_currency
+    SELECT c.*, u.wallet_balance, u.currency AS user_currency, u.account_status
       FROM cards c
       JOIN users u ON u.id = c.user_id
      WHERE c.flutterwave_card_id = ${flutterwaveCardId} OR c.card_id = ${flutterwaveCardId}
      LIMIT 1`
-    return rows[0] as (CardRow & { wallet_balance: string; user_currency: string }) | undefined
+    return rows[0] as
+        | (CardRow & { wallet_balance: string; user_currency: string; account_status: string })
+        | undefined
 }
 
 export async function getCardForUser(userId: number, cardId: string) {
@@ -542,6 +550,7 @@ export async function deleteCardForUser(userId: number, cardId: string) {
  *
  * One statement performs every check and every mutation together:
  *   - the card exists, belongs to a user, and is ACTIVE
+ *   - the owning account is not frozen or banned
  *   - amount <= remaining card allocation (limit - spent)
  *   - wallet_balance >= amount
  * and only then debits the wallet, advances the card's spend counter, and
@@ -565,6 +574,10 @@ export async function authoriseCardDebit(input: {
         JOIN users u ON u.id = c.user_id
        WHERE (c.flutterwave_card_id = ${input.flutterwaveCardId} OR c.card_id = ${input.flutterwaveCardId})
          AND c.status = 'ACTIVE'
+         -- A frozen or banned account declines every authorisation. Checked here
+         -- rather than in the caller so it holds for the webhook and the
+         -- simulator alike, and cannot race an operator freezing mid-charge.
+         AND COALESCE(u.account_status, 'ACTIVE') = 'ACTIVE'
          AND c.card_spending_limit - c.total_spent_by_card >= ${input.amount}::numeric
          AND u.wallet_balance >= ${input.amount}::numeric
          -- Replay guard: an already-settled tx_id yields no target row, so

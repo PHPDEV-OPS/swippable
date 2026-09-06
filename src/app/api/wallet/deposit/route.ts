@@ -6,6 +6,8 @@ import { creditWallet, findUserById, recordTransaction } from '@/lib/db'
 import { convertToUsd } from '@/lib/fx'
 import { decimal, formatMoney, isPositive } from '@/lib/money'
 import { initiateStkPush, isMpesaConfigured, MpesaError, normalisePhone } from '@/lib/mpesa'
+import { getAccountStatus } from '@/lib/admin-db'
+import { assertRailOpen } from '@/lib/platform'
 import type { DepositRequest } from '@/types/api'
 
 export const dynamic = 'force-dynamic'
@@ -29,10 +31,25 @@ export const POST = withRouteErrors('wallet:deposit', async (request: Request) =
         badRequest('Deposit amount must be greater than zero', 'INVALID_AMOUNT')
     }
 
+    // A frozen or banned account may not move money on any rail.
+    const accountStatus = await getAccountStatus(user.id)
+    if (accountStatus !== 'ACTIVE') {
+        throw new HttpError(
+            403,
+            accountStatus === 'FROZEN'
+                ? 'Your account is frozen, so deposits are paused. Please contact support.'
+                : 'This account is closed and can no longer receive deposits.',
+            'ACCOUNT_RESTRICTED'
+        )
+    }
+
     if (body.channel === 'MPESA') {
+        // Throws a 503 if the founders have halted this rail from the command center.
+        await assertRailOpen('MPESA_DEPOSITS')
         return handleMpesa(user.id, amount, body)
     }
     if (body.channel === 'CRYPTO') {
+        await assertRailOpen('CRYPTO_DEPOSITS')
         return handleCrypto(user.id, amount, body)
     }
 

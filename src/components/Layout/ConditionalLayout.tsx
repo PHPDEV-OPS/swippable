@@ -13,6 +13,8 @@ export default function ConditionalLayout({
     const pathname = usePathname()
 
     const isDashboard = pathname?.startsWith('/dashboard')
+    // The command center brings its own rail, header and chrome.
+    const isAdmin = pathname?.startsWith('/admin')
     const isAuth =
         pathname === '/signin' ||
         pathname === '/signup' ||
@@ -22,9 +24,9 @@ export default function ConditionalLayout({
         pathname?.startsWith('/reset-password')
 
     // Hide header on dashboard and auth pages
-    const hideHeader = isDashboard || isAuth
+    const hideHeader = isDashboard || isAuth || isAdmin
     // Hide footer and scroll-to-top on both dashboard and auth pages
-    const hideFooterAndScroll = isDashboard || isAuth
+    const hideFooterAndScroll = isDashboard || isAuth || isAdmin
 
     return (
         <>
