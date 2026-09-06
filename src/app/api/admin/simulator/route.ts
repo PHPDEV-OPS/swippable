@@ -10,10 +10,11 @@ import {
     reverseCardDebit,
     settlePendingDeposit,
 } from '@/lib/db'
-import { BLOCKED_MERCHANT_COUNTRIES, diagnose } from '@/lib/decline'
+import { evaluateAuthorisation } from '@/lib/card-authorisation'
+import { diagnose } from '@/lib/decline'
 import { badRequest, notFound, readJson, withRouteErrors } from '@/lib/http'
-import { decimal, formatMoney, gte, isPositive, subtract } from '@/lib/money'
-import { getLiquidity, isRailHalted } from '@/lib/platform'
+import { decimal, formatMoney, isPositive, subtract } from '@/lib/money'
+import { isRailHalted } from '@/lib/platform'
 import type { DeclineCode, SimulationRequest, SimulationResult } from '@/types/admin'
 import type { Decimal } from '@/lib/money'
 
@@ -174,90 +175,26 @@ async function simulateCardPayment(input: {
         },
     }
 
-    // Run the checks in the same order the processor does, so the trace shows
-    // the operator precisely where a real charge would have stopped.
-    const railHalted = await isRailHalted('CARD_AUTHORISATIONS')
-    trace.push({
-        step: 'Kill switch',
-        status: railHalted ? 'FAIL' : 'PASS',
-        detail: railHalted ? 'Card authorisations are halted platform-wide' : 'Authorisation rail is open',
-    })
+    // The shared checklist - the exact one the merchant checkout runs, so a
+    // rehearsed decline and a real one are the same decline.
+    const decision = await evaluateAuthorisation(
+        {
+            cardStatus: String(card.status),
+            cardSpendingLimit: decimal(card.card_spending_limit),
+            totalSpentByCard: decimal(card.total_spent_by_card),
+            expiry: card.expiry_date ?? null,
+            accountStatus: String(card.account_status ?? 'ACTIVE'),
+            walletBalance: balanceBefore,
+        },
+        {
+            amount: input.amount,
+            merchantCountry: input.merchantCountry,
+            forcedCode: input.forcedCode,
+        }
+    )
 
-    const countryBlocked = BLOCKED_MERCHANT_COUNTRIES.has(input.merchantCountry)
-    trace.push({
-        step: 'Merchant country',
-        status: countryBlocked ? 'FAIL' : 'PASS',
-        detail: countryBlocked
-            ? `${input.merchantCountry} is on the issuer's blocked list`
-            : `${input.merchantCountry} is permitted`,
-    })
-
-    const accountStatus = String(card.account_status ?? 'ACTIVE').toUpperCase()
-    trace.push({
-        step: 'Account status',
-        status: accountStatus === 'ACTIVE' ? 'PASS' : 'FAIL',
-        detail: accountStatus === 'ACTIVE' ? 'Account is active' : `Account is ${accountStatus.toLowerCase()}`,
-    })
-
-    const cardActive = String(card.status).toUpperCase() === 'ACTIVE'
-    trace.push({
-        step: 'Card status',
-        status: cardActive ? 'PASS' : 'FAIL',
-        detail: cardActive ? 'Card is active' : `Card is ${String(card.status).toLowerCase()}`,
-    })
-
-    const remaining = subtract(card.card_spending_limit, card.total_spent_by_card)
-    const withinCardLimit = gte(remaining, input.amount)
-    trace.push({
-        step: 'Card allocation',
-        status: withinCardLimit ? 'PASS' : 'FAIL',
-        detail: `${formatMoney(remaining)} remaining against a ${formatMoney(input.amount)} charge`,
-    })
-
-    const walletCovers = gte(balanceBefore, input.amount)
-    trace.push({
-        step: 'Wallet balance',
-        status: walletCovers ? 'PASS' : 'FAIL',
-        detail: `${formatMoney(balanceBefore)} available against a ${formatMoney(input.amount)} charge`,
-    })
-
-    const liquidity = await getLiquidity()
-    const floatCovers = gte(liquidity.declared.issuerSettlementPoolUsd, input.amount)
-    trace.push({
-        step: 'Issuer settlement pool',
-        status: floatCovers ? 'PASS' : 'FAIL',
-        detail: floatCovers
-            ? `${formatMoney(liquidity.declared.issuerSettlementPoolUsd)} of platform float available`
-            : `Platform float is ${formatMoney(liquidity.declared.issuerSettlementPoolUsd)} — below the charge`,
-    })
-
-    // The forced code lets an operator rehearse a decline the current state
-    // would not otherwise produce (a bad CVV, an expired card).
-    const naturalCode: DeclineCode | null = railHalted
-        ? 'RAIL_HALTED'
-        : countryBlocked
-          ? 'BLOCKED_MERCHANT_COUNTRY'
-          : accountStatus !== 'ACTIVE'
-            ? 'ACCOUNT_FROZEN'
-            : !cardActive
-              ? 'CARD_NOT_ACTIVE'
-              : !withinCardLimit
-                ? 'CARD_LIMIT_EXCEEDED'
-                : !walletCovers
-                  ? 'INSUFFICIENT_WALLET_BALANCE'
-                  : !floatCovers
-                    ? 'INSUFFICIENT_PLATFORM_FLOAT'
-                    : null
-
-    const code = input.forcedCode ?? naturalCode
-
-    if (input.forcedCode && !naturalCode) {
-        trace.push({
-            step: 'Forced decline',
-            status: 'FAIL',
-            detail: `Every check passed; ${input.forcedCode} was injected by the operator`,
-        })
-    }
+    trace.push(...decision.trace)
+    const code = decision.code
 
     if (code) {
         const diagnostic = diagnose(code)

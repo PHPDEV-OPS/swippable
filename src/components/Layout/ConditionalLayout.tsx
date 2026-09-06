@@ -15,6 +15,8 @@ export default function ConditionalLayout({
     const isDashboard = pathname?.startsWith('/dashboard')
     // The command center brings its own rail, header and chrome.
     const isAdmin = pathname?.startsWith('/admin')
+    // The test checkout is a standalone payment page, not part of the site.
+    const isCheckout = pathname?.startsWith('/checkout')
     const isAuth =
         pathname === '/signin' ||
         pathname === '/signup' ||
@@ -24,9 +26,9 @@ export default function ConditionalLayout({
         pathname?.startsWith('/reset-password')
 
     // Hide header on dashboard and auth pages
-    const hideHeader = isDashboard || isAuth || isAdmin
+    const hideHeader = isDashboard || isAuth || isAdmin || isCheckout
     // Hide footer and scroll-to-top on both dashboard and auth pages
-    const hideFooterAndScroll = isDashboard || isAuth || isAdmin
+    const hideFooterAndScroll = isDashboard || isAuth || isAdmin || isCheckout
 
     return (
         <>

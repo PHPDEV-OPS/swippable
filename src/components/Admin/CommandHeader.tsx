@@ -86,10 +86,10 @@ function Omnibar() {
             <div
                 className={cn(
                     'flex h-11 items-center gap-2.5 rounded-full border px-4 transition-all',
-                    'border-white/[0.09] bg-white/[0.05] focus-within:border-[#925FFF]/60 focus-within:bg-white/[0.08]'
+                    'border-white/20 bg-white/12 focus-within:border-white/45 focus-within:bg-white/20'
                 )}
             >
-                <Search size={15} className="shrink-0 text-[#7c7f88]" />
+                <Search size={15} className="shrink-0 text-white/60" />
                 <input
                     ref={inputRef}
                     value={query}
@@ -99,11 +99,11 @@ function Omnibar() {
                     }}
                     onFocus={() => setOpen(true)}
                     placeholder="User ID, M-Pesa ref, 0x hash, or last 4 digits…"
-                    className="min-w-0 flex-1 bg-transparent text-[13.5px] text-white outline-none placeholder:text-[#6e7079]"
+                    className="min-w-0 flex-1 bg-transparent text-[13.5px] text-white outline-none placeholder:text-white/50"
                     aria-label="Search users, transactions and cards"
                 />
-                {results.isFetching && <Loader2 size={13} className="animate-spin text-[#7c7f88]" />}
-                <kbd className="hidden shrink-0 rounded-md border border-white/[0.12] px-1.5 py-0.5 font-sans text-[10px] font-bold text-[#7c7f88] sm:block">
+                {results.isFetching && <Loader2 size={13} className="animate-spin text-white/70" />}
+                <kbd className="hidden shrink-0 rounded-md border border-white/25 px-1.5 py-0.5 font-sans text-[10px] font-bold text-white/70 sm:block">
                     ⌘K
                 </kbd>
             </div>
@@ -197,13 +197,13 @@ function KillSwitchControl() {
                     <button
                         type="button"
                         onClick={() => setRailMenu((value) => !value)}
-                        className="hidden h-11 cursor-pointer items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.05] px-3.5 text-[12.5px] font-bold text-[#b9bbc2] transition-colors hover:bg-white/[0.09] lg:flex"
+                        className="hidden h-11 cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3.5 text-[12.5px] font-bold text-white/85 transition-colors hover:bg-white/20 hover:text-white lg:flex"
                         aria-label="Rail controls"
                     >
                         <ShieldAlert size={14} />
                         Rails
                         {engaged && !fullyEngaged && (
-                            <span className="rounded-full bg-[#e0293c] px-1.5 text-[10px] font-black text-white">
+                            <span className="rounded-full bg-white px-1.5 text-[10px] font-black text-[#a51d2c]">
                                 {state?.haltedRails.length}
                             </span>
                         )}
@@ -261,8 +261,12 @@ function KillSwitchControl() {
                     className={cn(
                         'group flex h-11 cursor-pointer items-center gap-2.5 rounded-full px-4 text-[12.5px] font-black uppercase tracking-[0.06em] transition-all',
                         fullyEngaged
-                            ? 'bg-[#e0293c] text-white shadow-[0_0_0_4px_rgba(224,41,60,0.22)] hover:bg-[#c81f30]'
-                            : 'border border-[#e0293c]/35 bg-[#e0293c]/10 text-[#ff7a87] hover:bg-[#e0293c]/20'
+                            ? 'bg-white text-[#a51d2c] shadow-[0_0_0_4px_rgba(255,255,255,0.25)] hover:bg-[#ffeaec]'
+                            : engaged
+                              // A rail is down, so the header is already red - a red
+                              // button would vanish into it.
+                              ? 'border border-white/40 bg-white/15 text-white hover:bg-white/25'
+                              : 'border border-white/25 bg-[#e0293c] text-white hover:bg-[#c81f30]'
                     )}
                 >
                     <Power size={15} className={fullyEngaged ? 'animate-pulse' : ''} />
@@ -324,13 +328,23 @@ function KillSwitchControl() {
 export function CommandHeader() {
     const { theme, setTheme } = useTheme()
     const [mounted, setMounted] = useState(false)
+    const killSwitch = useKillSwitch()
     useEffect(() => setMounted(true), [])
 
+    // Matches the top of the rail's gradient exactly, so the two meet without a
+    // seam - and turns with it when the platform is halted.
+    const halted = (killSwitch.data?.haltedRails.length ?? 0) > 0
+
     return (
-        <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#0d0d11]/95 backdrop-blur-xl">
+        <header
+            className={cn(
+                'sticky top-0 z-40 border-b border-white/12 backdrop-blur-xl transition-colors',
+                halted ? 'bg-[#a51d2c]' : 'bg-[#6330cf]'
+            )}
+        >
             <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
                 <Link href="/admin" className="flex shrink-0 items-center gap-2.5 lg:hidden">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-[#6330cf] to-[#925FFF] text-[13px] font-black text-white">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 text-[13px] font-black text-white">
                         S
                     </span>
                 </Link>
@@ -341,7 +355,7 @@ export function CommandHeader() {
                     <button
                         type="button"
                         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                        className="hidden h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-white/[0.09] bg-white/[0.05] text-[#b9bbc2] transition-colors hover:bg-white/[0.09] sm:flex"
+                        className="hidden h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/12 text-white/85 transition-colors hover:bg-white/20 hover:text-white sm:flex"
                         aria-label="Toggle theme"
                     >
                         {mounted && theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
@@ -349,7 +363,7 @@ export function CommandHeader() {
 
                     <KillSwitchControl />
 
-                    <div className="ml-1 flex h-11 items-center rounded-full border border-white/[0.09] bg-white/[0.05] pl-1 pr-1">
+                    <div className="ml-1 flex h-11 items-center rounded-full border border-white/20 bg-white/12 pl-1 pr-1">
                         <UserButton appearance={{ elements: { avatarBox: { width: 34, height: 34 } } }} />
                     </div>
                 </div>

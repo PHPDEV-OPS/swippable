@@ -8,10 +8,12 @@ import {
     Minus,
     Play,
     RotateCcw,
+    ShoppingCart,
     Smartphone,
     Terminal,
     X,
 } from 'lucide-react'
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useAdminCards, useAdminUsers, useDeclines, useSimulate } from '@/lib/admin-client'
 import { formatMoney } from '@/lib/money'
@@ -158,13 +160,22 @@ export function SimulationLab() {
 
     return (
         <div className="space-y-5">
-            <div>
-                <h1 className="text-[26px] font-extrabold tracking-tight text-[#111116] dark:text-white">
-                    Simulation lab
-                </h1>
-                <p className="mt-1 text-[13.5px] text-[#5c5f68] dark:text-[#9a9ca4]">
-                    Rehearse payments, declines and lost webhooks against the real authorisation path.
-                </p>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h1 className="text-[26px] font-extrabold tracking-tight text-[#111116] dark:text-white">
+                        Simulation lab
+                    </h1>
+                    <p className="mt-1 text-[13.5px] text-[#5c5f68] dark:text-[#9a9ca4]">
+                        Rehearse payments, declines and lost webhooks against the real authorisation path.
+                    </p>
+                </div>
+                <Link
+                    href="/checkout"
+                    className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 py-2 text-[13px] font-bold text-[#1c1c24] transition-colors hover:bg-[#f7f7f9] dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-[#e4e5eb] dark:hover:bg-white/[0.09]"
+                >
+                    <ShoppingCart size={14} />
+                    Open the test checkout
+                </Link>
             </div>
 
             <div className="grid gap-4 xl:grid-cols-[1fr_1.05fr]">

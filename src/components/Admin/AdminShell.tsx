@@ -22,7 +22,7 @@ import { useAdminSession, useKillSwitch } from '@/lib/admin-client'
 import { cn } from '@/lib/utils'
 import { RAIL_LABELS } from '@/types/admin'
 import { CommandHeader } from './CommandHeader'
-import { Pill, TimeAgo } from './primitives'
+import { TimeAgo } from './primitives'
 
 const NAV = [
     { href: '/admin', label: 'Command center', icon: Gauge, exact: true },
@@ -44,9 +44,9 @@ const NAV = [
  *     the security boundary.
  *
  *  2. The halted state. When the kill switch is engaged the whole surface
- *     repaints: a red band pins to the top, the rail's accent turns red, and
- *     the content gets a red ring. Halting the platform should be impossible
- *     to forget you did.
+ *     repaints: a red band pins to the top, the brand rail and header turn red,
+ *     and the content gets a red ring. Halting the platform should be
+ *     impossible to forget you did.
  */
 export function AdminShell({ children }: { children: React.ReactNode }) {
     const { isLoaded, isSignedIn } = useAuth()
@@ -70,19 +70,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
     if (session.isError || !session.data) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-[#0d0d11] px-6">
+            <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#6330cf] to-[#4a1fa5] px-6">
                 <div className="max-w-sm text-center">
-                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#e0293c]/15 text-[#ff7a87]">
+                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white">
                         <ShieldAlert size={22} />
                     </div>
                     <h1 className="text-lg font-extrabold text-white">Not available</h1>
-                    <p className="mt-2 text-[13.5px] leading-relaxed text-[#8a8d96]">
+                    <p className="mt-2 text-[13.5px] leading-relaxed text-white/70">
                         This account does not have superadmin access. If you reached this by mistake, head back to your
                         dashboard.
                     </p>
                     <Link
                         href="/dashboard"
-                        className="mt-5 inline-flex rounded-full bg-gradient-to-r from-[#6330cf] to-[#925FFF] px-5 py-2.5 text-[13px] font-bold text-white"
+                        className="mt-5 inline-flex rounded-full bg-white px-5 py-2.5 text-[13px] font-bold text-[#6330cf] transition-transform hover:scale-[1.02]"
                     >
                         Go to dashboard
                     </Link>
@@ -128,10 +128,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </AnimatePresence>
 
             <div className="flex">
-                {/* Dark rail. Fixed on desktop, a drawer below lg. */}
+                {/* Brand rail. Fixed on desktop, a drawer below lg. */}
                 <aside
                     className={cn(
-                        'fixed inset-y-0 left-0 z-50 flex w-[248px] shrink-0 flex-col bg-[#0d0d11] transition-transform duration-300',
+                        'fixed inset-y-0 left-0 z-50 flex w-[248px] shrink-0 flex-col transition-transform duration-300',
+                        // Top of the gradient is the exact header colour, so the
+                        // rail and the top bar meet without a visible seam.
+                        isHalted
+                            ? 'bg-gradient-to-b from-[#a51d2c] to-[#7d1420]'
+                            : 'bg-gradient-to-b from-[#6330cf] to-[#4a1fa5]',
                         'lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
                         mobileOpen ? 'translate-x-0' : '-translate-x-full'
                     )}
@@ -140,8 +145,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                         <Link href="/admin" className="flex items-center gap-2.5">
                             <span
                                 className={cn(
-                                    'flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-tr transition-colors',
-                                    isHalted ? 'from-[#e0293c] to-[#ff6b7a]' : 'from-[#6330cf] to-[#925FFF]'
+                                    'flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg transition-colors',
+                                    isHalted ? 'bg-white/20' : 'bg-white/15'
                                 )}
                             >
                                 <Image
@@ -157,7 +162,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                         <button
                             type="button"
                             onClick={() => setMobileOpen(false)}
-                            className="cursor-pointer text-[#7c7f88] lg:hidden"
+                            className="cursor-pointer text-white/60 transition-colors hover:text-white lg:hidden"
                             aria-label="Close navigation"
                         >
                             <X size={18} />
@@ -165,9 +170,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                     </div>
 
                     <div className="px-5 pb-4">
-                        <Pill tone={isHalted ? 'danger' : 'brand'} className="w-full justify-center">
+                        <span
+                            className={cn(
+                                'flex w-full items-center justify-center gap-1.5 rounded-full py-1 text-[11px] font-bold',
+                                isHalted ? 'bg-white text-[#a51d2c]' : 'bg-white/15 text-white'
+                            )}
+                        >
                             {isHalted ? 'Halted' : 'Superadmin'}
-                        </Pill>
+                        </span>
                     </div>
 
                     <nav className="flex-1 space-y-1 overflow-y-auto px-3">
@@ -181,20 +191,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                                     className={cn(
                                         'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13.5px] font-semibold transition-all',
                                         active
-                                            ? isHalted
-                                                ? 'bg-[#e0293c]/15 text-white'
-                                                : 'bg-white/[0.08] text-white'
-                                            : 'text-[#7c7f88] hover:bg-white/[0.04] hover:text-[#d5d6db]'
+                                            ? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]'
+                                            : 'text-white/60 hover:bg-white/[0.08] hover:text-white'
                                     )}
                                 >
                                     <Icon size={16} strokeWidth={2.1} />
                                     {item.label}
                                     {active && (
                                         <span
-                                            className={cn(
-                                                'ml-auto h-1.5 w-1.5 rounded-full',
-                                                isHalted ? 'bg-[#ff7a87]' : 'bg-[#925FFF]'
-                                            )}
+                                            className="ml-auto h-1.5 w-1.5 rounded-full bg-white" 
                                         />
                                     )}
                                 </Link>
@@ -202,12 +207,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                         })}
                     </nav>
 
-                    <div className="border-t border-white/[0.07] p-4">
+                    <div className="border-t border-white/15 p-4">
                         <p className="truncate text-[13px] font-bold text-white">{session.data.name}</p>
-                        <p className="truncate text-[11.5px] text-[#7c7f88]">{session.data.email}</p>
+                        <p className="truncate text-[11.5px] text-white/55">{session.data.email}</p>
                         <Link
                             href="/dashboard"
-                            className="mt-3 block rounded-xl border border-white/[0.09] px-3 py-2 text-center text-[12px] font-bold text-[#b9bbc2] transition-colors hover:bg-white/[0.05]"
+                            className="mt-3 block rounded-xl border border-white/20 px-3 py-2 text-center text-[12px] font-bold text-white/85 transition-colors hover:bg-white/10 hover:text-white"
                         >
                             Back to user app
                         </Link>
@@ -226,7 +231,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                         <button
                             type="button"
                             onClick={() => setMobileOpen(true)}
-                            className="absolute left-4 top-1/2 z-50 -translate-y-1/2 cursor-pointer text-[#b9bbc2] lg:hidden"
+                            className="absolute left-4 top-1/2 z-50 -translate-y-1/2 cursor-pointer text-white/80 transition-colors hover:text-white lg:hidden"
                             aria-label="Open navigation"
                             style={{ marginTop: 0 }}
                         >

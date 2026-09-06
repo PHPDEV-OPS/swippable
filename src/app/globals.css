@@ -463,47 +463,91 @@ html {
   background: transparent !important;
 }
 
+/*
+  Sizing and colour for the Clerk widget, matching the auth design: filled grey
+  controls rather than outlined white ones, and 52px pill buttons.
+
+  These duplicate what `authClerkAppearance` sets, deliberately. Clerk ships its
+  own stylesheet, and the appearance utilities alone lose to it often enough
+  that the form renders half-styled on a cold load. Both layers use !important,
+  so keep the two in step - if a value changes here, change it there too.
+*/
 .cl-socialButtonsBlockButton {
-  background-color: #ffffff !important;
-  border: 1px solid #e5e7eb !important;
-  color: #374151 !important;
-  height: 54px !important;
+  background-color: #f4f4f6 !important;
+  border: none !important;
+  color: #18181b !important;
+  height: 52px !important;
   border-radius: 9999px !important;
 }
 
+.cl-socialButtonsBlockButton:hover {
+  background-color: #ebebef !important;
+}
+
 .cl-socialButtonsBlockButtonText {
-  color: #374151 !important;
+  color: #18181b !important;
   font-size: 15px !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
 }
 
 .cl-headerTitle {
   color: #09090b !important;
+  font-size: 38px !important;
+  line-height: 1.1 !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
 }
 
 .cl-headerSubtitle {
-  color: #71717a !important;
+  color: #52525b !important;
+  font-size: 15px !important;
 }
 
 .cl-formFieldLabel {
-  color: #09090b !important;
-  font-size: 14px !important;
+  color: #18181b !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
 }
 
 .cl-formFieldInput {
-  background-color: #ffffff !important;
-  border: 1px solid #e5e7eb !important;
+  background-color: #f4f4f6 !important;
+  border: 1px solid transparent !important;
   color: #09090b !important;
-  height: 54px !important;
+  height: 52px !important;
   border-radius: 16px !important;
   font-size: 15px !important;
 }
 
+.cl-formFieldInput:focus {
+  border-color: #7042f4 !important;
+  box-shadow: 0 0 0 4px rgba(112, 66, 244, 0.12) !important;
+}
+
 .cl-formButtonPrimary {
-  height: 54px !important;
+  height: 52px !important;
   border-radius: 9999px !important;
   font-size: 15px !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
   background-color: #7042f4 !important;
+  box-shadow: 0 6px 18px rgba(112, 66, 244, 0.28) !important;
+}
+
+.cl-formButtonPrimary:hover {
+  background-color: #6330cf !important;
+}
+
+/* The design separates heading from form, and form from social, with dashes. */
+.cl-dividerLine {
+  background-color: transparent !important;
+  height: 0 !important;
+  border-top: 1px dashed #d9d9e0 !important;
+}
+
+.cl-dividerText {
+  color: #9ca3af !important;
+  background-color: transparent !important;
 }
 
 
