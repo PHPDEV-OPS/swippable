@@ -235,19 +235,24 @@ export async function resolveAdmin(input: {
     // The founder row is seeded by hand in Postgres before the Clerk account
     // exists, so its `uuid` is a placeholder and `clerk_user_id` is null - the
     // real identifiers are only knowable at this exact moment. Every other user
-    // row carries `uuid = clerk_user_id` (see `upsertUser`), so the row is
-    // brought into that same shape here: both identifiers are set together,
-    // and only while the row has never been linked. Once linked, the uuid is
-    // stable and is left alone even if the Clerk id later changes.
-    const neverLinked = !existing.clerk_user_id
-    const needsLink = neverLinked || existing.clerk_user_id !== input.clerkUserId || !existing.is_admin
+    // row carries `uuid = clerk_user_id` (see `upsertUser`), and this brings the
+    // seeded row into that same shape.
+    //
+    // The uuid is keyed off its own shape rather than off `clerk_user_id` being
+    // null, because the two can be linked separately: signing in to /dashboard
+    // first sets `clerk_user_id` via `upsertUser` and leaves the placeholder
+    // uuid behind. Every Clerk id starts with `user_`, so a uuid that does not
+    // is still a placeholder and is safe to overwrite. Nothing references uuid
+    // by foreign key - it is only ever an alternate lookup key.
+    const uuidIsPlaceholder = !existing.uuid?.startsWith('user_')
+    const needsLink = uuidIsPlaceholder || existing.clerk_user_id !== input.clerkUserId || !existing.is_admin
     if (!needsLink) return { row: existing, bootstrapped: false }
 
     const updated = (
         await sql`
     UPDATE users
        SET clerk_user_id = ${input.clerkUserId},
-           uuid = CASE WHEN ${neverLinked} THEN ${input.clerkUserId} ELSE uuid END,
+           uuid = CASE WHEN ${uuidIsPlaceholder} THEN ${input.clerkUserId} ELSE uuid END,
            is_admin = TRUE,
            account_status = CASE WHEN account_status = 'BANNED' THEN account_status ELSE 'ACTIVE' END,
            kyc_status = 'VERIFIED',
