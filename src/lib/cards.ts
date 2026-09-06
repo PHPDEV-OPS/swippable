@@ -8,15 +8,8 @@ import {
     type UserRow,
 } from '@/lib/db'
 import { conflict, HttpError } from '@/lib/http'
-import { decimal, formatMoney, gte, isPositive, subtract, toMinor, type Decimal } from '@/lib/money'
-import {
-    createVirtualCard,
-    FlutterwaveError,
-    flutterwaveMode,
-    fundVirtualCard,
-    isFlutterwaveConfigured,
-    withdrawFromVirtualCard,
-} from '@/lib/flutterwave'
+import { add, decimal, formatMoney, gte, isPositive, subtract, toMinor, type Decimal } from '@/lib/money'
+import { adjustAllocationFor, issueWithFailover, PROVIDER_LABELS, providerOf } from '@/lib/card-provider'
 import { serializeCard } from '@/lib/serialize'
 import type { VirtualCard } from '@/types/api'
 
@@ -36,22 +29,6 @@ export interface IssueResult {
     provider: string
     /** Set when the provider was unavailable and a sandbox card was issued. */
     warning?: string
-}
-
-function sandboxCard(reference: string) {
-    // Deterministic, obviously-fake identifiers. No PAN is generated or stored.
-    const last4 = String(Math.floor(1000 + Math.random() * 9000))
-    const expiry = new Date()
-    expiry.setFullYear(expiry.getFullYear() + 3)
-
-    return {
-        id: `sbx_${reference}`,
-        last4,
-        maskedPan: `**** **** **** ${last4}`,
-        expiryMonth: String(expiry.getMonth() + 1).padStart(2, '0'),
-        expiryYear: String(expiry.getFullYear()).slice(-2),
-        brand: 'MASTERCARD',
-    }
 }
 
 export async function issueCard(
@@ -77,40 +54,19 @@ export async function issueCard(
     const reference = `swp_card_${randomUUID().replace(/-/g, '').slice(0, 20)}`
     const billingName = (input.holder || user.name || 'Swippable Cardholder').trim()
 
-    let provider = flutterwaveMode() === 'unconfigured' ? 'sandbox' : 'flutterwave'
-    let warning: string | undefined
-    let issued = sandboxCard(reference)
+    // Walks the configured issuer order, so the primary being down moves the
+    // request to the secondary rather than costing the user their card.
+    const outcome = await issueWithFailover({
+        amount,
+        currency: input.currency,
+        billingName,
+        email: user.email,
+        reference,
+    })
 
-    if (isFlutterwaveConfigured()) {
-        try {
-            const card = await createVirtualCard({
-                amount,
-                currency: input.currency,
-                billingName,
-                email: user.email,
-                reference,
-            })
-            issued = {
-                id: card.id,
-                last4: card.last4,
-                maskedPan: card.maskedPan,
-                expiryMonth: card.expiryMonth,
-                expiryYear: card.expiryYear,
-                brand: card.brand,
-            }
-        } catch (error) {
-            // The provider being down must not cost the user their card: fall
-            // back to a sandbox card and say so, rather than failing silently.
-            console.error('[cards] Flutterwave issuance failed, issuing sandbox card', error)
-            provider = 'sandbox'
-            warning =
-                error instanceof FlutterwaveError
-                    ? `Flutterwave declined the request (${error.message}). A sandbox card was issued instead.`
-                    : 'Flutterwave was unreachable. A sandbox card was issued instead.'
-        }
-    } else {
-        warning = 'Flutterwave credentials are not configured; a sandbox card was issued.'
-    }
+    const provider = outcome.provider
+    const warning = outcome.warning
+    const issued = outcome.card
 
     const row = await insertCardIfFunded({
         userId: user.id,
@@ -148,7 +104,7 @@ export async function issueCard(
         status: 'SUCCESS',
         merchant: `Card allocation • ${issued.last4}`,
         category: 'Card Funding',
-        metadata: { provider, reference, action: 'ISSUE' },
+        metadata: { provider, reference, action: 'ISSUE', attempts: outcome.attempts },
     })
 
     await pushNotification(
@@ -197,31 +153,26 @@ export async function adjustCardFunding(
 
     let warning: string | undefined
 
-    // Keep the provider's view of the card in step with ours where possible.
-    if (isFlutterwaveConfigured() && existing.flutterwave_card_id && existing.provider === 'flutterwave') {
+    // Keep the issuer's view of the card in step with ours where possible.
+    // Failing here is not fatal: the local allocation is the source of truth for
+    // authorisation, so the limit still moves and the mismatch is surfaced.
+    const cardProvider = providerOf(existing)
+    if (cardProvider !== 'sandbox') {
         const reference = `swp_fund_${randomUUID().replace(/-/g, '').slice(0, 20)}`
-        const magnitude = funding ? delta : decimal(subtract('0', delta))
         try {
-            if (funding) {
-                await fundVirtualCard({
-                    cardId: existing.flutterwave_card_id,
-                    amount: magnitude,
-                    currency: input.currency,
-                    reference,
-                })
-            } else {
-                await withdrawFromVirtualCard({
-                    cardId: existing.flutterwave_card_id,
-                    amount: magnitude,
-                    reference,
-                })
-            }
+            await adjustAllocationFor(existing, {
+                delta,
+                newTotal: add(existing.card_spending_limit, delta),
+                currency: input.currency,
+                reference,
+            })
         } catch (error) {
-            console.error('[cards] Flutterwave funding call failed', error)
+            console.error(`[cards] ${cardProvider} funding call failed`, error)
+            const label = PROVIDER_LABELS[cardProvider]
             warning =
-                error instanceof FlutterwaveError
-                    ? `Flutterwave reported: ${error.message}. Your local limit was still updated.`
-                    : 'Flutterwave was unreachable. Your local limit was still updated.'
+                error instanceof Error
+                    ? `${label} reported: ${error.message}. Your local limit was still updated.`
+                    : `${label} was unreachable. Your local limit was still updated.`
         }
     }
 

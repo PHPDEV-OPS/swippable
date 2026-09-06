@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { clientIp, requireAdmin, requireReason } from '@/lib/admin-auth'
 import { findAdminCard, writeAudit } from '@/lib/admin-db'
 import { pushNotification } from '@/lib/db'
-import { fetchCardSecrets, FlutterwaveError, isFlutterwaveConfigured } from '@/lib/flutterwave'
+import { fetchSecretsFor, ProviderUnavailableError } from '@/lib/card-provider'
 import { HttpError, notFound, readJson, withRouteErrors } from '@/lib/http'
 import type { CardRevealResponse } from '@/types/admin'
 
@@ -38,22 +38,6 @@ export const POST = withRouteErrors('admin:cards:reveal', async (request: Reques
     const card = await findAdminCard(id)
     if (!card) notFound('Card not found')
 
-    if (card.provider !== 'flutterwave' || !card.flutterwave_card_id) {
-        throw new HttpError(
-            409,
-            'This is a sandbox card - it has no issuer-side record, so there is no real number to reveal.',
-            'SANDBOX_CARD'
-        )
-    }
-
-    if (!isFlutterwaveConfigured()) {
-        throw new HttpError(
-            503,
-            'Flutterwave credentials are not configured, so card details cannot be retrieved.',
-            'PROVIDER_UNCONFIGURED'
-        )
-    }
-
     // Audited *before* the secrets are fetched: if the issuer call succeeds and
     // the audit write fails, the reveal would otherwise go unrecorded.
     await writeAudit({
@@ -72,14 +56,19 @@ export const POST = withRouteErrors('admin:cards:reveal', async (request: Reques
         ip: clientIp(request),
     })
 
+    // Routed to whichever issuer minted this card.
     let secrets
     try {
-        secrets = await fetchCardSecrets(String(card.flutterwave_card_id))
+        secrets = await fetchSecretsFor(card)
     } catch (error) {
-        if (error instanceof FlutterwaveError) {
-            throw new HttpError(502, `Flutterwave could not return the details: ${error.message}`, 'PROVIDER_ERROR')
+        if (error instanceof ProviderUnavailableError) {
+            throw new HttpError(error.code === 'SANDBOX_CARD' ? 409 : 503, error.message, error.code)
         }
-        throw error
+        throw new HttpError(
+            502,
+            `The issuer could not return the details: ${error instanceof Error ? error.message : 'unreachable'}`,
+            'PROVIDER_ERROR'
+        )
     }
 
     // The cardholder sees that support looked, which is what makes the

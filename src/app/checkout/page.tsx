@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { Suspense } from 'react'
 import AuthGuard from '@/components/Auth/AuthGuard'
 import { Checkout } from '@/components/Checkout/Checkout'
 
@@ -22,7 +23,10 @@ export default function CheckoutPage() {
     return (
         <AuthGuard>
             <div className={inter.className}>
-                <Checkout />
+                {/* useSearchParams reads the Stripe return params, so it needs a boundary. */}
+                <Suspense fallback={null}>
+                    <Checkout />
+                </Suspense>
             </div>
         </AuthGuard>
     )

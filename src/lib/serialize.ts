@@ -16,7 +16,7 @@ import type {
  * names and every monetary value crosses the wire as a decimal string.
  */
 
-const CHANNELS: TransactionChannel[] = ['MPESA', 'CRYPTO', 'CARD_TRANSACTION', 'CARD_FUNDING', 'TRANSFER']
+const CHANNELS: TransactionChannel[] = ['MPESA', 'CRYPTO', 'STRIPE', 'CARD_TRANSACTION', 'CARD_FUNDING', 'TRANSFER']
 const STATUSES: TransactionStatus[] = ['PENDING', 'SUCCESS', 'FAILED']
 
 function asCurrency(value: unknown): Currency {
@@ -52,6 +52,7 @@ export function categoryFor(row: { category?: unknown; channel?: unknown; mercha
     const channel = asChannel(row.channel)
     if (channel === 'MPESA') return 'M-Pesa Deposit'
     if (channel === 'CRYPTO') return 'Crypto Deposit'
+    if (channel === 'STRIPE') return 'Card Deposit'
     if (channel === 'CARD_FUNDING') return 'Card Funding'
     if (channel === 'TRANSFER') return 'Transfer'
     return 'Card Spending'

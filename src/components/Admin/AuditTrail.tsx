@@ -24,6 +24,7 @@ const ACTION_TONE: Partial<Record<AuditAction, Tone>> = {
     LIMITS_OVERRIDE: 'brand',
     CARD_LIMIT_OVERRIDE: 'brand',
     CARD_STATUS_OVERRIDE: 'brand',
+    PROVIDER_SETTINGS_UPDATED: 'brand',
     SIMULATION_RUN: 'neutral',
     LIQUIDITY_UPDATED: 'neutral',
     ADMIN_BOOTSTRAPPED: 'brand',
