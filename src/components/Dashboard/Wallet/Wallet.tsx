@@ -38,6 +38,7 @@ import {
     ApiRequestError,
     useCards,
     useDeposit,
+    useDepositStatus,
     useFundCard,
     useLinkWallet,
     useSandboxTopUp,
@@ -164,6 +165,7 @@ export function Wallet() {
                 amount: result.creditedAmount ?? depositAmount,
                 channel: depositChannel,
                 balance: result.balance,
+                txId: result.txId,
             })
         } catch (error) {
             setIsDepositModalOpen(false)
@@ -1045,6 +1047,8 @@ interface DepositOutcome {
     amount: string
     channel: string
     balance?: string
+    /** Ledger id to poll while a PENDING deposit settles out-of-band. */
+    txId?: string
 }
 
 /**
@@ -1063,6 +1067,16 @@ function DepositOutcomeModal({
     currency: string
     onClose: () => void
 }) {
+    // An STK push settles on the user's handset and reaches us by webhook, so
+    // this modal watches the ledger row rather than making the user refresh to
+    // find out whether they were charged.
+    const live = useDepositStatus(outcome.status === 'PENDING' ? (outcome.txId ?? null) : null)
+
+    const status = live.data?.status ?? outcome.status
+    const message = live.data?.message ?? outcome.message
+    const balance = live.data?.balanceAfter ?? live.data?.balance ?? outcome.balance
+    const settling = status === 'PENDING' && Boolean(outcome.txId)
+
     const tone = {
         SUCCESS: {
             icon: <CheckCircle2 size={30} />,
@@ -1079,7 +1093,7 @@ function DepositOutcomeModal({
             ring: 'bg-[#ffebeb] text-[#ef5362] dark:bg-[#3c151a] dark:text-[#ff7a87]',
             title: 'Deposit not started',
         },
-    }[outcome.status]
+    }[status]
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -1113,19 +1127,30 @@ function DepositOutcomeModal({
                 </p>
 
                 <p className="mt-3 text-xs leading-relaxed text-[#777984] dark:text-[#888a93]">
-                    {outcome.message}
+                    {message}
                 </p>
 
-                {outcome.balance && (
+                {live.data?.receipt && (
+                    <p className="mt-2 font-mono text-[11px] text-[#9a9ca4]">Receipt {live.data.receipt}</p>
+                )}
+
+                {balance && (
                     <p className="mt-3 rounded-xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold dark:bg-white/[0.05]">
-                        New balance: {formatMoney(outcome.balance, currency)}
+                        New balance: {formatMoney(balance, currency)}
                     </p>
                 )}
 
-                {outcome.status === 'PENDING' && (
+                {settling && (
+                    <p className="mt-3 flex items-center justify-center gap-2 text-[11px] font-semibold text-[#7042f4] dark:text-[#b79bff]">
+                        <RefreshCw size={12} className="animate-spin" />
+                        Watching for confirmation — this updates on its own
+                    </p>
+                )}
+
+                {status === 'PENDING' && (
                     <p className="mt-3 text-[10px] font-medium text-[#9a9ca4]">
                         {outcome.channel === 'MPESA'
-                            ? 'Your balance updates the moment you approve the prompt on your phone. Unapproved prompts are marked failed automatically.'
+                            ? 'Approve the prompt on your phone and this updates automatically. Unapproved prompts are marked failed on their own.'
                             : 'Your balance updates once the transfer reaches the required confirmations on Base.'}
                     </p>
                 )}

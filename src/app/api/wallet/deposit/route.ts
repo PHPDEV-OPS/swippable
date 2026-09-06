@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth'
 import { badRequest, HttpError, readJson, withRouteErrors } from '@/lib/http'
-import { creditWallet, findUserById, recordTransaction } from '@/lib/db'
+import { creditWallet, findTransactionByTxId, findUserById, recordTransaction } from '@/lib/db'
 import { convertToUsd } from '@/lib/fx'
 import { decimal, formatMoney, isPositive } from '@/lib/money'
 import { initiateStkPush, isMpesaConfigured, MpesaError, normalisePhone } from '@/lib/mpesa'
@@ -130,6 +130,9 @@ async function handleMpesa(userId: number, amount: string, body: DepositRequest)
         channel: 'MPESA',
         message: push.customerMessage,
         checkoutRequestId: push.checkoutRequestId,
+        // The client polls this id until the Daraja callback settles the row,
+        // so the user never has to refresh to find out whether they were paid.
+        txId: `mpesa_${push.checkoutRequestId}`,
         creditedAmount: usdAmount,
         fxRateKesPerUsd: rate,
     })
@@ -171,9 +174,52 @@ async function handleCrypto(userId: number, amount: string, body: DepositRequest
         status: 'PENDING',
         channel: 'CRYPTO',
         message: 'Deposit recorded. Your balance updates once the transfer is confirmed on Base.',
+        txId,
         creditedAmount: amount,
     })
 }
+
+/**
+ * Live status of a single deposit.
+ *
+ * An STK push settles out-of-band: the user approves on their handset and
+ * Daraja calls our webhook seconds later. Without this the balance only moved
+ * on the next manual refresh, so the app looked broken during the exact window
+ * the user cares most about. The client polls here until the row leaves PENDING.
+ *
+ * Scoped to the caller's own deposits - a transaction id is guessable, and this
+ * would otherwise report on anyone's.
+ */
+export const GET = withRouteErrors('wallet:deposit:status', async (request: Request) => {
+    const user = await requireUser()
+
+    const txId = new URL(request.url).searchParams.get('txId')
+    if (!txId) badRequest('A transaction id is required', 'TX_ID_REQUIRED')
+
+    const row = await findTransactionByTxId(txId)
+    if (!row || Number(row.user_id) !== user.id) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    const status = String(row.status ?? 'PENDING').toUpperCase()
+    const fresh = await findUserById(user.id)
+
+    return NextResponse.json({
+        txId,
+        status,
+        channel: String(row.channel ?? ''),
+        amount: decimal(row.amount),
+        balance: decimal(fresh?.wallet_balance ?? 0),
+        balanceAfter: row.balance_after === null || row.balance_after === undefined ? null : decimal(row.balance_after),
+        message:
+            status === 'SUCCESS'
+                ? `${formatMoney(row.amount)} credited to your wallet.`
+                : status === 'FAILED'
+                  ? String(row.metadata?.resultDesc ?? row.metadata?.expiryReason ?? 'The payment was not completed.')
+                  : 'Waiting for confirmation from the payment provider.',
+        receipt: row.metadata?.mpesaReceipt ?? null,
+    })
+})
 
 /**
  * Development-only manual settlement, so the full ledger can be exercised

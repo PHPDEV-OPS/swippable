@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth'
 import { HttpError, notFound, withRouteErrors } from '@/lib/http'
 import { getCardForUser, pushNotification } from '@/lib/db'
-import { fetchCardSecrets, FlutterwaveError, isFlutterwaveConfigured } from '@/lib/flutterwave'
+import { fetchSecretsFor, ProviderUnavailableError } from '@/lib/card-provider'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -26,32 +26,21 @@ export const POST = withRouteErrors('cards:secure', async (_request: Request, ct
     const card = await getCardForUser(user.id, id)
     if (!card) notFound('Card not found')
 
-    // A sandbox card has no provider-side record, so there is nothing real to
-    // reveal. Say so plainly rather than inventing a plausible-looking number.
-    if (card.provider !== 'flutterwave' || !card.flutterwave_card_id) {
-        throw new HttpError(
-            409,
-            'This is a sandbox card, so it has no real card number to reveal. Cards issued once Flutterwave is configured can be revealed here.',
-            'SANDBOX_CARD'
-        )
-    }
-
-    if (!isFlutterwaveConfigured()) {
-        throw new HttpError(
-            503,
-            'Flutterwave credentials are not configured, so card details cannot be retrieved.',
-            'PROVIDER_UNCONFIGURED'
-        )
-    }
-
+    // Routed to whichever issuer actually minted this card, so a Stripe card and
+    // a Flutterwave one both reveal correctly. A sandbox card has no issuer-side
+    // record at all, and says so plainly rather than inventing a number.
     let secrets
     try {
-        secrets = await fetchCardSecrets(card.flutterwave_card_id)
+        secrets = await fetchSecretsFor(card)
     } catch (error) {
-        if (error instanceof FlutterwaveError) {
-            throw new HttpError(502, `Flutterwave could not return the details: ${error.message}`, 'PROVIDER_ERROR')
+        if (error instanceof ProviderUnavailableError) {
+            throw new HttpError(error.code === 'SANDBOX_CARD' ? 409 : 503, error.message, error.code)
         }
-        throw error
+        throw new HttpError(
+            502,
+            `The issuer could not return the details: ${error instanceof Error ? error.message : 'unreachable'}`,
+            'PROVIDER_ERROR'
+        )
     }
 
     // Reveals are security-relevant, so they leave a trail the user can see.

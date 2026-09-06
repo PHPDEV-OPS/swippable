@@ -9,6 +9,7 @@ import {
     Gauge,
     Menu,
     ScrollText,
+    Settings,
     ShieldAlert,
     Users,
     X,
@@ -31,6 +32,7 @@ const NAV = [
     { href: '/admin/cards', label: 'Card lifecycle', icon: CreditCard, exact: false },
     { href: '/admin/simulator', label: 'Simulation lab', icon: FlaskConical, exact: false },
     { href: '/admin/audit', label: 'Audit trail', icon: ScrollText, exact: false },
+    { href: '/admin/settings', label: 'Card issuers', icon: Settings, exact: false },
 ]
 
 /**

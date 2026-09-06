@@ -11,7 +11,7 @@ export type { Decimal }
 
 export type Currency = 'USD' | 'KES'
 export type TransactionType = 'CREDIT' | 'DEBIT'
-export type TransactionChannel = 'MPESA' | 'CRYPTO' | 'CARD_TRANSACTION' | 'CARD_FUNDING' | 'TRANSFER'
+export type TransactionChannel = 'MPESA' | 'CRYPTO' | 'STRIPE' | 'CARD_TRANSACTION' | 'CARD_FUNDING' | 'TRANSFER'
 export type TransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED'
 export type CardStatus = 'ACTIVE' | 'PAUSED'
 export type KycStatus = 'PENDING' | 'VERIFIED' | 'REJECTED'

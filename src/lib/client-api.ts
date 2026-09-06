@@ -1,6 +1,8 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
+import { toMinor } from '@/lib/money'
 import type {
     AnalyticsResponse,
     AppNotification,
@@ -87,6 +89,10 @@ export function useWallet(range: '7D' | '1M' | '1Y' = '7D') {
         queryKey: queryKeys.wallet(range),
         queryFn: () => request<WalletResponse>(`/api/wallet?range=${range}`),
         staleTime: 15_000,
+        // A deposit awaiting its provider callback settles out-of-band, so the
+        // balance refreshes on its own until nothing is in flight.
+        refetchInterval: (query) => (toMinor(query.state.data?.pendingDeposits ?? 0) > 0n ? 8000 : false),
+        refetchIntervalInBackground: false,
     })
 }
 
@@ -103,6 +109,11 @@ export function useTransactions() {
         queryKey: queryKeys.transactions,
         queryFn: () => request<LedgerTransaction[]>('/api/transactions'),
         staleTime: 15_000,
+        // Same reasoning as `useWallet`: a pending row is one a provider is
+        // still deciding on, so the list keeps itself current until it settles.
+        refetchInterval: (query) =>
+            (query.state.data ?? []).some((tx) => tx.status === 'PENDING') ? 8000 : false,
+        refetchIntervalInBackground: false,
     })
 }
 
@@ -211,7 +222,20 @@ export interface DepositResponse {
     message: string
     creditedAmount?: string
     checkoutRequestId?: string
+    /** Ledger id to poll while the deposit settles out-of-band. */
+    txId?: string
     balance?: string
+}
+
+export interface DepositStatus {
+    txId: string
+    status: 'PENDING' | 'SUCCESS' | 'FAILED'
+    channel: string
+    amount: string
+    balance: string
+    balanceAfter: string | null
+    message: string
+    receipt: string | null
 }
 
 export function useDeposit() {
@@ -221,6 +245,47 @@ export function useDeposit() {
             request<DepositResponse>('/api/wallet/deposit', { method: 'POST', body: JSON.stringify(body) }),
         onSuccess: invalidate,
     })
+}
+
+/**
+ * Polls a pending deposit until it settles.
+ *
+ * An STK push is confirmed on the user's handset and lands via a webhook
+ * seconds later, so without this the balance only moved on a manual refresh -
+ * the app looked broken during the exact window the user is watching. Polling
+ * stops the moment the row leaves PENDING, and the settled result invalidates
+ * every money query so the whole dashboard catches up at once.
+ */
+export function useDepositStatus(txId: string | null) {
+    const invalidate = useInvalidateMoney()
+    const settled = useRef(false)
+
+    const query = useQuery({
+        queryKey: ['deposit-status', txId],
+        queryFn: () => request<DepositStatus>(`/api/wallet/deposit?txId=${encodeURIComponent(txId!)}`),
+        enabled: Boolean(txId),
+        // Stops as soon as it settles, so a finished deposit costs nothing.
+        refetchInterval: (query) => (query.state.data?.status === 'PENDING' ? 3000 : false),
+        refetchIntervalInBackground: false,
+        staleTime: 0,
+        // A 404 here is conclusive, not transient.
+        retry: false,
+    })
+
+    // Refresh the rest of the app exactly once, on the transition to settled.
+    useEffect(() => {
+        if (!txId) {
+            settled.current = false
+            return
+        }
+        const status = query.data?.status
+        if ((status === 'SUCCESS' || status === 'FAILED') && !settled.current) {
+            settled.current = true
+            invalidate()
+        }
+    }, [txId, query.data?.status, invalidate])
+
+    return query
 }
 
 export function useLinkWallet() {

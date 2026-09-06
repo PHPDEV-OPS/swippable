@@ -10,12 +10,14 @@ import {
     Loader2,
     Lock,
     Minus,
+    ExternalLink,
     ShieldCheck,
     Stethoscope,
     X,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { ApiRequestError } from '@/lib/client-api'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
@@ -367,6 +369,8 @@ export function Checkout() {
                             </p>
                         </div>
 
+                        <StripeHostedCheckout amount={amount} />
+
                         {/* Receipt. */}
                         <AnimatePresence>
                             {result && (
@@ -510,6 +514,110 @@ export function Checkout() {
                     </div>
                 </div>
             </div>
+        </div>
+    )
+}
+
+
+/**
+ * Stripe's own hosted checkout.
+ *
+ * Distinct from the card form above, and the distinction is the point: that
+ * form charges a card *we issued*, while this sends you to Stripe's page to pay
+ * *us* with one of their test cards, crediting the wallet. It is the acquiring
+ * side, so it works on a plain sandbox account without Issuing being activated.
+ */
+function StripeHostedCheckout({ amount }: { amount: string }) {
+    const params = useSearchParams()
+    const queryClient = useQueryClient()
+    const sessionId = params?.get('stripe_session') ?? null
+    const cancelled = params?.get('stripe_cancelled') === '1'
+
+    const start = useMutation({
+        mutationFn: () =>
+            request<{ url: string | null }>('/api/checkout/stripe', {
+                method: 'POST',
+                body: JSON.stringify({ amount, description: 'Swippable wallet top-up' }),
+            }),
+        onSuccess: (data) => {
+            if (data.url) window.location.href = data.url
+        },
+    })
+
+    // On return from Stripe, confirm the session server-side and credit. The id
+    // is re-fetched from Stripe rather than trusted, and the credit is keyed on
+    // it, so refreshing this page cannot double-credit.
+    const confirm = useQuery({
+        queryKey: ['stripe-session', sessionId],
+        queryFn: () =>
+            request<{ status: string; paid: boolean; amount: string; balance?: string; message: string }>(
+                `/api/checkout/stripe?sessionId=${encodeURIComponent(sessionId!)}`
+            ),
+        enabled: Boolean(sessionId),
+        retry: false,
+    })
+
+    useEffect(() => {
+        if (confirm.data?.paid) {
+            ;[['me'], ['wallet'], ['cards'], ['transactions'], ['summary'], ['notifications'], ['checkout']].forEach(
+                (key) => queryClient.invalidateQueries({ queryKey: key })
+            )
+        }
+    }, [confirm.data?.paid, queryClient])
+
+    return (
+        <div className="rounded-[26px] border border-black/[0.05] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+            <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[#81858c]">
+                Or pay on Stripe&rsquo;s test checkout
+            </h2>
+            <p className="mt-2 text-[12.5px] leading-relaxed text-[#5c5f68]">
+                Opens Stripe&rsquo;s own hosted page. Pay with{' '}
+                <code className="font-mono font-bold">4242 4242 4242 4242</code>, any future expiry and any CVC — the
+                amount lands in your wallet as a card deposit.
+            </p>
+
+            {confirm.data && (
+                <p
+                    className={cn(
+                        'mt-3 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold',
+                        confirm.data.paid ? 'bg-[#e7faf4] text-[#0d8f70]' : 'bg-[#fff8ec] text-[#8a5a00]'
+                    )}
+                >
+                    {confirm.data.message}
+                    {confirm.data.balance ? ` New balance ${formatMoney(confirm.data.balance)}.` : ''}
+                </p>
+            )}
+
+            {confirm.isError && (
+                <p className="mt-3 rounded-xl bg-[#ffebeb] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#c81f30]">
+                    {(confirm.error as Error).message}
+                </p>
+            )}
+
+            {cancelled && !confirm.data && (
+                <p className="mt-3 rounded-xl bg-[#f7f7f9] px-3.5 py-2.5 text-[12.5px] text-[#5c5f68]">
+                    That checkout was cancelled. Nothing was charged.
+                </p>
+            )}
+
+            {start.isError && (
+                <p className="mt-3 rounded-xl bg-[#ffebeb] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#c81f30]">
+                    {(start.error as Error).message}
+                </p>
+            )}
+
+            <button
+                type="button"
+                disabled={start.isPending || Number(amount) <= 0}
+                onClick={() => start.mutate()}
+                className={cn(
+                    'mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-black/[0.1] py-3 text-[14px] font-bold text-[#111116] transition-colors hover:bg-[#f7f7f9]',
+                    'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+            >
+                {start.isPending ? <Loader2 size={15} className="animate-spin" /> : <ExternalLink size={15} />}
+                Pay {formatMoney(amount || '0')} on Stripe
+            </button>
         </div>
     )
 }
