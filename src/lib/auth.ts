@@ -1,5 +1,6 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { findUserByClerkId, touchAppSession, upsertUser, type UserRow } from '@/lib/db'
+import { syncClerkWeb3Wallets } from '@/lib/web3-identity'
 
 /**
  * Resolves the Clerk session to the local user row, creating the mirror row on
@@ -25,6 +26,19 @@ export async function getAuthenticatedUser(): Promise<UserRow | null> {
     }
 
     await touchAppSession(clerkUser.id, user.id)
+
+    // A Base / Coinbase Wallet sign-in already proved ownership of the address,
+    // so treat it as the wallet link and record it here. Doing it on the auth
+    // path rather than behind a button means a user who signed in with their
+    // wallet can receive USDC immediately, without linking anything by hand.
+    //
+    // Never allowed to break a sign-in: a linking failure costs the user a
+    // convenience, whereas throwing here would cost them the whole session.
+    try {
+        await syncClerkWeb3Wallets({ userId: user.id, wallets: clerkUser.web3Wallets })
+    } catch (error) {
+        console.error('[auth] Clerk Web3 wallet sync failed', error)
+    }
 
     return user
 }

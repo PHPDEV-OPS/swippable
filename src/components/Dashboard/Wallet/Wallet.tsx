@@ -33,6 +33,7 @@ import {
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { LinkedWallets } from './LinkedWallets'
 import { formatMoney } from '@/lib/money'
 import {
     ApiRequestError,
@@ -692,6 +693,8 @@ export function Wallet() {
                 </div>
             </motion.div>
 
+            <LinkedWallets wallets={wallet.data?.wallets ?? []} loading={wallet.isLoading} />
+
             {/* Receive modal */}
             <AnimatePresence>
                 {isReceiveModalOpen && (
@@ -711,14 +714,14 @@ export function Wallet() {
                             </div>
                         </div>
 
-                        <p className="mb-1 text-xs font-bold text-[#81858c]">Your Base network address</p>
+                        <p className="mb-1 text-xs font-bold text-[#81858c]">Your Base receiving address</p>
                         <p className="break-all rounded-xl bg-[#f5f5f7] p-2.5 font-mono text-xs font-semibold dark:bg-white/5">
                             {activeAddress ?? 'Connect a wallet to generate a deposit address'}
                         </p>
 
-                        <p className="mt-3 text-[11px] text-[#81858c]">
-                            After sending, declare the transfer under Deposit Funds so it is credited as soon as it
-                            confirms.
+                        <p className="mt-3 text-[11px] leading-relaxed text-[#81858c]">
+                            USDC on Base sent here is credited automatically once it confirms. Declaring the transfer
+                            under Deposit Funds is optional - it just lets you watch it settle.
                         </p>
 
                         <div className="mt-5 flex gap-3">

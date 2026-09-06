@@ -140,6 +140,58 @@ At the checkout you pick the card rather than typing the PAN — matching runs o
 last 4. Test triggers are stated on the page: CVV `000` forces an invalid-CVV
 decline, and `IR KP SY CU RU BY` force a blocked-country decline.
 
+## Crypto deposits (USDC on Base)
+
+A user reaches a deposit address two ways, and the difference is recorded rather
+than flattened:
+
+| Route | `source` | Verified? |
+| --- | --- | --- |
+| Signed in with a Base account / Coinbase Wallet via Clerk | `clerk` | **Yes** — Clerk made them sign a nonce |
+| Connected a wallet in the dashboard | `wallet_connect` | No |
+| Typed an address | `manual` | No |
+
+A Web3 sign-in *is* the wallet link. `syncClerkWeb3Wallets` runs on the auth path,
+so the address is picked up on the first authenticated request and can receive USDC
+immediately — no button to find. Only wallets Clerk reports as `verified` are linked;
+an unproven address must never receive credit.
+
+Users can link **several** addresses, one of which is the primary receive address.
+That matters because inbound transfers are matched to a user *by destination
+address*: a single overwritable column would orphan money sent to a previous one.
+A unique index enforces that an address belongs to exactly one account.
+
+### Making deposits actually credit
+
+The endpoint is built and hardened (`/api/webhooks/crypto`: HMAC-verified, replayed
+events deduplicated, confirmations enforced). What it needs is something watching the
+chain and calling it.
+
+Point an address-activity webhook — Alchemy, QuickNode, Helius, Coinbase Commerce —
+at `https://<your-domain>/api/webhooks/crypto`, signing with `CRYPTO_WEBHOOK_SECRET`.
+It must be updated with each newly linked address; `listCryptoWallets` is the source
+of truth for what to watch.
+
+Two settlement paths are supported, so either style of provider works:
+
+1. The user declared the deposit first → the PENDING row is matched by tx hash.
+2. The transfer arrives unannounced → the destination address is matched to its owner.
+
+Until an indexer is wired up, exercise the whole path from the admin **Simulation
+lab** (`CRYPTO_DEPOSIT_CONFIRMED`), which settles through the same statement the real
+webhook uses.
+
+### Keys
+
+| Variable | Needed for | Notes |
+| --- | --- | --- |
+| `CRYPTO_WEBHOOK_SECRET` | **Required** | HMAC-SHA256 secret; the webhook rejects everything without it |
+| `CRYPTO_MIN_CONFIRMATIONS` | Optional | Defaults to 3 |
+| `NEXT_PUBLIC_ONCHAINKIT_API_KEY` | Optional | Coinbase OnchainKit; only for the in-app connect UI |
+
+Clerk Web3 sign-in needs **no extra keys** — it is dashboard configuration on your
+existing Clerk instance, and the existing publishable/secret pair covers it.
+
 ## Money handling
 
 Every amount is carried as a `Decimal` — a canonical `"0.00"` string — and computed

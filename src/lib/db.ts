@@ -40,6 +40,21 @@ async function ensureSchema() {
       usdc_balance NUMERIC(20,2) DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`
+        // A user can link more than one address - a Base account proved at
+        // sign-in through Clerk, and a wallet connected in-app - so each address
+        // is its own row rather than a single overwritable column.
+        await sql`ALTER TABLE crypto_wallets ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual'`
+        await sql`ALTER TABLE crypto_wallets ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT FALSE`
+        await sql`ALTER TABLE crypto_wallets ADD COLUMN IF NOT EXISTS label TEXT`
+        await sql`ALTER TABLE crypto_wallets ADD COLUMN IF NOT EXISTS chain TEXT NOT NULL DEFAULT 'base'`
+        await sql`ALTER TABLE crypto_wallets ADD COLUMN IF NOT EXISTS is_primary BOOLEAN NOT NULL DEFAULT FALSE`
+        // An address may only ever belong to one account. Without this, two
+        // users could claim the same address and an incoming transfer would
+        // credit whichever row the lookup happened to find first.
+        await sql`CREATE UNIQUE INDEX IF NOT EXISTS crypto_wallets_address_key
+                    ON crypto_wallets (LOWER(base_account_address))
+                 WHERE base_account_address IS NOT NULL`
+        await sql`CREATE INDEX IF NOT EXISTS crypto_wallets_user_idx ON crypto_wallets(user_id)`
 
         // No raw PAN or CVV is ever persisted - only the masked pan and last 4.
         await sql`CREATE TABLE IF NOT EXISTS cards (
@@ -738,26 +753,141 @@ export async function getTransactionsByUserId(userId: number, limit = 200) {
 
 /* ---------------------------------------------------------------- wallets */
 
+/** The user's primary receive address, or the oldest link if none is flagged. */
 export async function getWalletByUserId(userId: number) {
     await ensureSchema()
-    const rows = await sql`SELECT * FROM crypto_wallets WHERE user_id = ${userId} LIMIT 1`
+    const rows = await sql`
+    SELECT * FROM crypto_wallets
+     WHERE user_id = ${userId}
+     ORDER BY is_primary DESC, verified DESC, created_at ASC
+     LIMIT 1`
     return rows[0] as
         | { id: number; wallet_id: string; base_account_address: string | null; usdc_balance: string }
         | undefined
 }
 
-export async function upsertCryptoWallet(userId: number, walletId: string, address: string) {
+export interface LinkedWalletRow {
+    id: number
+    wallet_id: string
+    user_id: number
+    base_account_address: string
+    usdc_balance: string
+    source: string
+    verified: boolean
+    label: string | null
+    chain: string
+    is_primary: boolean
+    created_at: string
+}
+
+export type LinkResult =
+    | { status: 'LINKED' | 'ALREADY_LINKED'; wallet: LinkedWalletRow }
+    | { status: 'TAKEN'; wallet: null }
+
+/**
+ * Links an address to a user.
+ *
+ * Idempotent for the same owner, and refuses outright when the address already
+ * belongs to somebody else - which is the whole reason for the unique index.
+ * Deposits are matched to a user *by destination address*, so letting two
+ * accounts claim one address would mean crediting the wrong person.
+ */
+export async function linkCryptoAddress(input: {
+    userId: number
+    walletId: string
+    address: string
+    source: 'clerk' | 'wallet_connect' | 'manual'
+    verified: boolean
+    label?: string | null
+    chain?: string
+}): Promise<LinkResult> {
     await ensureSchema()
-    const existing = await getWalletByUserId(userId)
+    const address = input.address.trim()
+
+    const existing = (
+        await sql`SELECT * FROM crypto_wallets WHERE LOWER(base_account_address) = LOWER(${address}) LIMIT 1`
+    )[0] as LinkedWalletRow | undefined
+
     if (existing) {
-        await sql`UPDATE crypto_wallets SET base_account_address = ${address} WHERE user_id = ${userId}`
-        return { ...existing, base_account_address: address }
+        if (Number(existing.user_id) !== input.userId) return { status: 'TAKEN', wallet: null }
+
+        // Re-linking through a stronger route upgrades the record: an address
+        // typed by hand and later proved at sign-in becomes verified.
+        const updated = (
+            await sql`
+      UPDATE crypto_wallets
+         SET verified = crypto_wallets.verified OR ${input.verified},
+             source = CASE WHEN ${input.verified} THEN ${input.source} ELSE crypto_wallets.source END,
+             label = COALESCE(${input.label ?? null}, crypto_wallets.label)
+       WHERE id = ${existing.id}
+      RETURNING *`
+        )[0] as LinkedWalletRow
+        return { status: 'ALREADY_LINKED', wallet: updated }
     }
+
+    // The first address a user links becomes their primary receive address.
     const rows = await sql`
-    INSERT INTO crypto_wallets (wallet_id, user_id, base_account_address, usdc_balance)
-    VALUES (${walletId}, ${userId}, ${address}, 0)
+    INSERT INTO crypto_wallets
+      (wallet_id, user_id, base_account_address, usdc_balance, source, verified, label, chain, is_primary)
+    VALUES (${input.walletId}, ${input.userId}, ${address}, 0, ${input.source}, ${input.verified},
+            ${input.label ?? null}, ${input.chain ?? 'base'},
+            NOT EXISTS (SELECT 1 FROM crypto_wallets WHERE user_id = ${input.userId}))
+    ON CONFLICT DO NOTHING
     RETURNING *`
-    return rows[0] as { id: number; wallet_id: string; base_account_address: string | null; usdc_balance: string }
+
+    const wallet = rows[0] as LinkedWalletRow | undefined
+    // A concurrent insert won the race; re-read to report the true owner.
+    if (!wallet) {
+        const raced = (
+            await sql`SELECT * FROM crypto_wallets WHERE LOWER(base_account_address) = LOWER(${address}) LIMIT 1`
+        )[0] as LinkedWalletRow | undefined
+        if (raced && Number(raced.user_id) === input.userId) return { status: 'ALREADY_LINKED', wallet: raced }
+        return { status: 'TAKEN', wallet: null }
+    }
+
+    return { status: 'LINKED', wallet }
+}
+
+export async function listCryptoWallets(userId: number) {
+    await ensureSchema()
+    const rows = await sql`
+    SELECT * FROM crypto_wallets
+     WHERE user_id = ${userId}
+     ORDER BY is_primary DESC, verified DESC, created_at ASC`
+    return rows as unknown as LinkedWalletRow[]
+}
+
+/** Unlinks an address. Promotes another to primary so one always remains. */
+export async function unlinkCryptoAddress(userId: number, address: string) {
+    await ensureSchema()
+    const removed = (
+        await sql`
+    DELETE FROM crypto_wallets
+     WHERE user_id = ${userId} AND LOWER(base_account_address) = LOWER(${address})
+    RETURNING id, is_primary`
+    )[0] as { id: number; is_primary: boolean } | undefined
+
+    if (!removed) return false
+
+    if (removed.is_primary) {
+        await sql`
+      UPDATE crypto_wallets SET is_primary = TRUE
+       WHERE id = (
+         SELECT id FROM crypto_wallets WHERE user_id = ${userId}
+          ORDER BY verified DESC, created_at ASC LIMIT 1
+       )`
+    }
+    return true
+}
+
+export async function setPrimaryCryptoAddress(userId: number, address: string) {
+    await ensureSchema()
+    const rows = await sql`
+    UPDATE crypto_wallets
+       SET is_primary = (LOWER(base_account_address) = LOWER(${address}))
+     WHERE user_id = ${userId}
+    RETURNING id, base_account_address, is_primary`
+    return (rows as unknown as Array<{ is_primary: boolean }>).some((row) => row.is_primary)
 }
 
 export async function getWalletAddressOwner(address: string) {

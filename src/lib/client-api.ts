@@ -96,6 +96,34 @@ export function useWallet(range: '7D' | '1M' | '1Y' = '7D') {
     })
 }
 
+/** Chooses which linked address inbound transfers are expected at. */
+export function useSetPrimaryWallet() {
+    const invalidate = useInvalidateMoney()
+    return useMutation({
+        mutationFn: (address: string) =>
+            request<{ onChainAddress: string }>('/api/wallet', {
+                method: 'PATCH',
+                body: JSON.stringify({ address }),
+            }),
+        onSuccess: invalidate,
+    })
+}
+
+/**
+ * Unlinks an address. Past deposits keep their history; what stops is future
+ * matching, so anything sent afterwards needs manual reconciliation.
+ */
+export function useUnlinkWallet() {
+    const invalidate = useInvalidateMoney()
+    return useMutation({
+        mutationFn: (address: string) =>
+            request<{ message: string }>(`/api/wallet?address=${encodeURIComponent(address)}`, {
+                method: 'DELETE',
+            }),
+        onSuccess: invalidate,
+    })
+}
+
 export function useCards() {
     return useQuery({
         queryKey: queryKeys.cards,
@@ -294,7 +322,7 @@ export function useLinkWallet() {
         mutationFn: (address: string) =>
             request<{ onChainAddress: string }>('/api/wallet', {
                 method: 'POST',
-                body: JSON.stringify({ address }),
+                body: JSON.stringify({ address, source: 'wallet_connect' }),
             }),
         onSuccess: invalidate,
     })

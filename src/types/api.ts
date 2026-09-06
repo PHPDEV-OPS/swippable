@@ -71,6 +71,25 @@ export interface LedgerTransaction {
     createdAt: string
 }
 
+/**
+ * An address that can receive USDC for this user.
+ *
+ * `source` records *how* it was linked, which is the difference between a
+ * proven claim and a typed one: `clerk` means the user signed in with the
+ * wallet and Clerk verified a signature, so `verified` is true.
+ */
+export interface LinkedWallet {
+    address: string
+    chain: string
+    source: 'clerk' | 'wallet_connect' | 'manual'
+    verified: boolean
+    /** The address inbound transfers are expected at. */
+    isPrimary: boolean
+    label: string | null
+    usdcBalance: Decimal
+    linkedAt: string
+}
+
 export interface WalletResponse {
     balance: Decimal
     currency: Currency
@@ -78,7 +97,10 @@ export interface WalletResponse {
     allocatedToCards: Decimal
     /** balance - allocatedToCards. */
     unallocated: Decimal
+    /** The primary receive address, kept for callers that want just one. */
     onChainAddress: string | null
+    /** Every address linked to this user. */
+    wallets: LinkedWallet[]
     usdcBalance: Decimal
     totalDeposited: Decimal
     totalSpent: Decimal

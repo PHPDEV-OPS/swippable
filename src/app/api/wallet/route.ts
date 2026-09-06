@@ -1,17 +1,21 @@
 import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth'
-import { badRequest, readJson, withRouteErrors } from '@/lib/http'
+import { badRequest, conflict, notFound, readJson, withRouteErrors } from '@/lib/http'
 import { getBalanceSeries } from '@/lib/analytics'
 import {
     expireStalePendingDeposits,
     getCardAllocationTotals,
     getWalletByUserId,
+    linkCryptoAddress,
+    listCryptoWallets,
+    setPrimaryCryptoAddress,
     sql,
-    upsertCryptoWallet,
+    unlinkCryptoAddress,
+    type LinkedWalletRow,
 } from '@/lib/db'
 import { decimal, percentOf, subtract } from '@/lib/money'
-import type { WalletAsset, WalletResponse } from '@/types/api'
+import type { LinkedWallet, WalletAsset, WalletResponse } from '@/types/api'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,8 +38,9 @@ export const GET = withRouteErrors('wallet:get', async (request: Request) => {
 
     const balance = decimal(user.wallet_balance)
 
-    const [chain, allocation, totals, series] = await Promise.all([
+    const [chain, wallets, allocation, totals, series] = await Promise.all([
         getWalletByUserId(user.id),
+        listCryptoWallets(user.id),
         getCardAllocationTotals(user.id),
         getDepositTotals(user.id),
         getBalanceSeries(user.id, balance, days),
@@ -76,6 +81,7 @@ export const GET = withRouteErrors('wallet:get', async (request: Request) => {
         allocatedToCards: allocation.allocated,
         unallocated,
         onChainAddress: chain?.base_account_address ?? null,
+        wallets: wallets.map(serializeWallet),
         usdcBalance: decimal(chain?.usdc_balance ?? 0),
         totalDeposited: totals.deposited,
         totalSpent: totals.spent,
@@ -104,19 +110,94 @@ async function getDepositTotals(userId: number) {
     }
 }
 
-/** Links (or re-links) the user's Base address for crypto deposits. */
+function serializeWallet(row: LinkedWalletRow): LinkedWallet {
+    const source = String(row.source ?? 'manual')
+    return {
+        address: row.base_account_address,
+        chain: String(row.chain ?? 'base'),
+        source: (['clerk', 'wallet_connect', 'manual'].includes(source) ? source : 'manual') as LinkedWallet['source'],
+        verified: Boolean(row.verified),
+        isPrimary: Boolean(row.is_primary),
+        label: row.label ?? null,
+        usdcBalance: decimal(row.usdc_balance),
+        linkedAt: new Date(row.created_at).toISOString(),
+    }
+}
+
+const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/
+
+/**
+ * Links an address for crypto deposits.
+ *
+ * Used by the in-app wallet connect flow. A Base or Coinbase Wallet *sign-in*
+ * does not need this - Clerk has already proved ownership, so the address is
+ * linked automatically on the first authenticated request.
+ *
+ * An address linked this way is recorded as unverified: connecting a wallet in
+ * the browser shows possession of a session, not of the key.
+ */
 export const POST = withRouteErrors('wallet:post', async (request: Request) => {
     const user = await requireUser()
-    const { address } = await readJson<{ address?: string }>(request)
+    const { address, source } = await readJson<{ address?: string; source?: string }>(request)
 
-    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address.trim())) {
+    const value = address?.trim() ?? ''
+    if (!EVM_ADDRESS.test(value)) {
         badRequest('A valid Base (EVM) address is required', 'INVALID_ADDRESS')
     }
 
-    const wallet = await upsertCryptoWallet(user.id, randomUUID(), address.trim())
+    const result = await linkCryptoAddress({
+        userId: user.id,
+        walletId: randomUUID(),
+        address: value,
+        source: source === 'wallet_connect' ? 'wallet_connect' : 'manual',
+        verified: false,
+    })
+
+    if (result.status === 'TAKEN') {
+        // Deposits are matched by destination address, so a second claim on one
+        // address would send somebody else's money here.
+        conflict(
+            'That address is already linked to another Swippable account. Use a different address, or contact support if you believe this is yours.',
+            'ADDRESS_TAKEN'
+        )
+    }
 
     return NextResponse.json({
-        message: 'Wallet linked',
-        onChainAddress: wallet.base_account_address,
+        message: result.status === 'LINKED' ? 'Wallet linked' : 'Wallet already linked',
+        onChainAddress: result.wallet.base_account_address,
+        wallet: serializeWallet(result.wallet),
     })
+})
+
+/** Promotes one of the user's linked addresses to be the receive address. */
+export const PATCH = withRouteErrors('wallet:primary', async (request: Request) => {
+    const user = await requireUser()
+    const { address } = await readJson<{ address?: string }>(request)
+
+    const value = address?.trim() ?? ''
+    if (!EVM_ADDRESS.test(value)) badRequest('A valid address is required', 'INVALID_ADDRESS')
+
+    const ok = await setPrimaryCryptoAddress(user.id, value)
+    if (!ok) notFound('That address is not linked to your account')
+
+    return NextResponse.json({ message: 'Primary address updated', onChainAddress: value })
+})
+
+/**
+ * Unlinks an address.
+ *
+ * The ledger is untouched: past deposits keep their history. What stops is
+ * future matching, so a transfer sent to an unlinked address will arrive
+ * unattributed and need manual reconciliation - which the UI warns about.
+ */
+export const DELETE = withRouteErrors('wallet:unlink', async (request: Request) => {
+    const user = await requireUser()
+
+    const address = new URL(request.url).searchParams.get('address')?.trim() ?? ''
+    if (!EVM_ADDRESS.test(address)) badRequest('A valid address is required', 'INVALID_ADDRESS')
+
+    const removed = await unlinkCryptoAddress(user.id, address)
+    if (!removed) notFound('That address is not linked to your account')
+
+    return NextResponse.json({ message: 'Wallet unlinked' })
 })
