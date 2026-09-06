@@ -234,6 +234,102 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Connection map. `non-scaling-stroke` keeps arc weight constant however the
+   panel is scaled, and pathLength=1 on the paths makes the dash maths uniform. */
+.swp-arc,
+.swp-arc-pulse {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+}
+
+.swp-arc {
+  stroke: url("#swp-arc");
+  stroke-width: 1.1px;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: swp-arc-draw 5s ease-in-out infinite;
+}
+
+.swp-arc-pulse {
+  stroke: #efe6ff;
+  stroke-width: 1.5px;
+  stroke-dasharray: 0.05 0.95;
+  stroke-dashoffset: 1;
+  animation: swp-arc-pulse 5s ease-in-out infinite;
+}
+
+.swp-ripple {
+  fill: none;
+  stroke: #8a63d2;
+  stroke-width: 0.25px;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: swp-ripple 2.6s ease-out infinite;
+}
+
+@keyframes swp-arc-draw {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  55%,
+  80% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes swp-arc-pulse {
+  0%,
+  18% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  26% {
+    opacity: 0.9;
+  }
+  70% {
+    stroke-dashoffset: 0.05;
+    opacity: 0.9;
+  }
+  100% {
+    stroke-dashoffset: 0.05;
+    opacity: 0;
+  }
+}
+
+@keyframes swp-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  100% {
+    transform: scale(3.4);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swp-arc,
+  .swp-arc-pulse,
+  .swp-ripple {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+  }
+  .swp-arc-pulse {
+    opacity: 0 !important;
+  }
+}
+
 /* Swippable loading state. The bars scale from their left edge so the line
    reads as a dash travelling rightwards rather than three separate blinks. */
 @keyframes swippable-dash {
