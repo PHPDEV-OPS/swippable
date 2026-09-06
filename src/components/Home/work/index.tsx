@@ -1,6 +1,6 @@
 'use client'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { WalletShowcase } from '../showcase'
 
 const services = [
   'One shared wallet balance',
@@ -19,7 +19,7 @@ const Work = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.55, ease: 'easeOut' }}
-            className='col-span-12 lg:col-span-7'>
+            className='col-span-12 lg:col-span-5'>
             <div className='flex flex-col gap-3'>
               <p className='font-medium text-white'>
                 Why choose <span className='text-primary'>Swippable</span>
@@ -33,7 +33,7 @@ const Work = () => {
               </p>
             </div>
 
-            <div className='mt-10 grid gap-6 md:grid-cols-2'>
+            <div className='mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2'>
               {services.map((service, index) => (
                 <motion.div
                   key={service}
@@ -62,10 +62,21 @@ const Work = () => {
           <motion.div
             initial={{ opacity: 0, y: 28 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
+            viewport={{ once: true, amount: 0.2 }}
             transition={{ duration: 0.6, delay: 0.12, ease: 'easeOut' }}
-            className='col-span-12 lg:col-span-5'>
-            <WalletShowcase />
+            className='col-span-12 lg:col-span-7'>
+            {/* The capture is already dark and on-brand, so it needs no tint -
+                just a rounded edge and a violet lift off the page. */}
+            <div className='overflow-hidden rounded-2xl border border-white/10 shadow-[0_30px_80px_-24px_rgba(76,29,190,0.55)]'>
+              <Image
+                src='/images/showcase/dashboard-hero.png'
+                alt='The Swippable dashboard: wallet balance, cards, activity and recent transactions'
+                width={1920}
+                height={1573}
+                sizes='(min-width: 1024px) 58vw, 100vw'
+                className='h-auto w-full'
+              />
+            </div>
           </motion.div>
         </div>
       </div>

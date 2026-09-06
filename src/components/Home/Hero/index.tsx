@@ -1,21 +1,27 @@
 'use client'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
-import { HeroShowcase } from '../showcase'
 
-/**
- * Landing hero.
- *
- * Entrances move a short distance rather than sliding in from off-screen: the
- * old `x: '-100%'` transforms pushed content outside the viewport on the way
- * in, which caused a horizontal scrollbar flash on narrow screens.
- */
-const fadeUp = {
-  initial: { opacity: 0, y: 24 },
-  animate: { opacity: 1, y: 0 },
+const leftAnimation = {
+  initial: { x: '-100%', opacity: 0 },
+  animate: { x: 0, opacity: 1 },
+  transition: { duration: 0.6 },
 }
+
+const rightAnimation = {
+  initial: { x: '100%', opacity: 0 },
+  animate: { x: 0, opacity: 1 },
+  transition: { duration: 0.6 },
+}
+
+const stats = [
+  { value: 'Instant', label: 'Card issuing' },
+  { value: 'M-Pesa', label: 'and USDC top-ups' },
+  { value: 'Per-card', label: 'spending limits' },
+]
 
 const Hero = () => {
   return (
@@ -29,10 +35,7 @@ const Hero = () => {
 
       <div className='container relative'>
         <div className='grid grid-cols-1 items-center gap-12 md:grid-cols-2 md:gap-10'>
-          <motion.div
-            {...fadeUp}
-            transition={{ duration: 0.55, ease: 'easeOut' }}
-            className='flex flex-col gap-8'>
+          <motion.div {...leftAnimation} className='flex flex-col gap-8'>
             <div className='flex flex-col gap-5 text-center md:text-left'>
               <div className='flex items-center justify-center lg:justify-start'>
                 <span className='inline-flex items-center gap-2 rounded-full border border-white/10 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary'>
@@ -65,14 +68,8 @@ const Hero = () => {
               </Link>
             </div>
 
-            {/* Concrete proof points instead of a crypto price ticker, which
-                described a product this platform is not. */}
             <dl className='grid grid-cols-3 gap-4 border-t border-white/10 pt-6 text-center md:text-left'>
-              {[
-                { value: 'Instant', label: 'Card issuing' },
-                { value: 'M-Pesa', label: 'and USDC top-ups' },
-                { value: 'Per-card', label: 'spending limits' },
-              ].map((stat) => (
+              {stats.map((stat) => (
                 <div key={stat.label}>
                   <dt className='text-lg font-semibold text-white'>{stat.value}</dt>
                   <dd className='text-sm text-white/50'>{stat.label}</dd>
@@ -81,12 +78,39 @@ const Hero = () => {
             </dl>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 32, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.7, ease: 'easeOut', delay: 0.1 }}
-            className='relative pb-12'>
-            <HeroShowcase />
+          <motion.div {...rightAnimation}>
+            {/*
+              The artwork ships in the template's original green. The overlay
+              re-tints it to brand violet: `mix-blend-color` keeps the photo's
+              luminance, so the phone and hand still read as objects, while
+              taking hue and saturation from the gradient. The mask confines the
+              tint to the artwork's opaque pixels so none of it spills onto the
+              page, and `isolate` keeps the blend inside this box.
+            */}
+            <div className='relative isolate mx-auto w-full max-w-[584px]'>
+              <Image
+                src='/images/hero/hero-banner-img.png'
+                alt='Swippable wallet and virtual card on mobile'
+                width={584}
+                height={582}
+                priority
+                className='h-auto w-full'
+              />
+              <div
+                aria-hidden
+                className='pointer-events-none absolute inset-0 bg-gradient-to-br from-[#6330cf] via-[#8553ec] to-[#12b88f] opacity-80 mix-blend-color'
+                style={{
+                  WebkitMaskImage: 'url(/images/hero/hero-banner-img.png)',
+                  maskImage: 'url(/images/hero/hero-banner-img.png)',
+                  WebkitMaskSize: 'contain',
+                  maskSize: 'contain',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                }}
+              />
+            </div>
           </motion.div>
         </div>
 

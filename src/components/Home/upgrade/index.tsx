@@ -2,7 +2,7 @@
 import { upgradeData } from '@/app/api/data'
 import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
-import { CardsShowcase } from '../showcase'
+import { CardLimitsIllustration } from '../illustrations'
 
 const Upgrade = () => {
   return (
@@ -48,7 +48,7 @@ const Upgrade = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}>
-            <CardsShowcase className='mb-10' />
+            <CardLimitsIllustration className='mx-auto h-auto w-full max-w-[540px]' />
           </motion.div>
         </div>
       </div>

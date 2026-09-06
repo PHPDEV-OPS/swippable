@@ -2,8 +2,7 @@
 import Image from 'next/image'
 import { portfolioData } from '@/app/api/data'
 import { motion } from 'framer-motion'
-import { DashboardShowcase } from '../showcase'
-import { LottieScene } from '../showcase/LottieScene'
+import { DARK_SCENE_PALETTE, LottieScene } from '../lottie/LottieScene'
 
 const Portfolio = () => {
   return (
@@ -15,13 +14,12 @@ const Portfolio = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}>
-            {/* Motion scene for this section; falls back to the dashboard
-                capture until the Lottie export is present. */}
             <LottieScene
               src='/animations/scene.json'
-              ariaLabel='Swippable cards animating into a stack'
-              className='mx-auto max-w-[620px]'
-              fallback={<DashboardShowcase />}
+              palette={DARK_SCENE_PALETTE}
+              aspectRatio={800 / 600}
+              ariaLabel='Swippable cards stacking into a wallet'
+              className='mx-auto max-w-[620px] rounded-2xl'
             />
           </motion.div>
 

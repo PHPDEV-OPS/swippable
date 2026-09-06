@@ -39,7 +39,9 @@ const Perks = () => {
             </p>
           </div>
 
-          <div className='mt-14 overflow-hidden rounded-3xl border border-white/10 bg-[#0b0716]/60 p-4 sm:p-6'>
+          {/* No frame: the map sits directly on the page so it reads as part
+              of the section rather than a card dropped into it. */}
+          <div className='mt-12'>
             <ConnectionMap cities={cities} arcs={arcs} />
           </div>
 
