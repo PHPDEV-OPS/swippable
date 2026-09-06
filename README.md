@@ -1,211 +1,120 @@
 # Swippable
 
-Virtual cards funded by M-Pesa and crypto. Next.js App Router, Clerk for identity,
-Neon Postgres for the ledger, and Flutterwave or Stripe Issuing for card issuing.
+Virtual dollar cards for Kenya. Top up in M-Pesa or USDC, spend online in USD.
+
+Swippable gives users a single wallet they can fund in shillings or stablecoins,
+then spin up virtual cards against it for online purchases — a card holds an
+allocation of the shared balance rather than money of its own.
+
+## Features
+
+**Wallet**
+- Top up over M-Pesa STK push, credited automatically once the prompt is approved
+- Deposit USDC on Base; sign in with a Base account or Coinbase Wallet and your
+  address is linked for you
+- Live balance, spend history and analytics
+
+**Virtual cards**
+- Issue cards against the wallet balance, each with its own spending limit
+- Move capital on and off a card, pause it, or close it
+- Reveal the full number and CVV on demand — never stored, fetched fresh each time
+- Issued through Flutterwave or Stripe Issuing, with automatic failover between them
+
+**Payments**
+- Real-time authorisation: every charge checks the card limit, the wallet balance
+  and the account status in one atomic step
+- Declines carry a readable reason, not just a processor code
+- A test checkout for exercising card payments end to end
+
+**Admin console** — an internal operations surface for the team: liquidity and
+revenue, account management, stuck-deposit reconciliation, card diagnostics and a
+payment simulator.
+
+## Tech stack
+
+| Layer | Choice |
+| --- | --- |
+| Framework | Next.js 16 (App Router, React 19) |
+| Language | TypeScript |
+| Styling | Tailwind CSS 4 |
+| Auth | Clerk (email, OAuth, Base / Coinbase Wallet) |
+| Database | Neon Postgres (serverless driver) |
+| Data fetching | TanStack Query |
+| Card issuing | Flutterwave · Stripe Issuing |
+| Payments in | M-Pesa Daraja · USDC on Base · Stripe Checkout |
+| Web3 | wagmi · viem · Coinbase OnchainKit |
+| Charts | Recharts |
+| Motion | Framer Motion |
+| Monitoring | Sentry |
+| Hosting | Vercel |
 
 ## Getting started
 
+**Prerequisites:** Node 20+, pnpm, and a Neon Postgres database.
+
 ```bash
+git clone https://github.com/PHPDEV-OPS/swippable.git
+cd swippable
 pnpm install
+cp .env.example .env.local
+```
+
+Fill in `.env.local`. Only `DATABASE_URL`, the two Clerk keys and
+`NEXT_PUBLIC_APP_URL` are needed to boot — every provider client reports itself
+*unconfigured* rather than throwing, so the app runs end to end on a partial
+config and falls back to sandbox behaviour.
+
+```bash
 pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Copy the environment keys into `.env.local` — Clerk, `DATABASE_URL`, the Flutterwave
-pair, the Daraja credentials and the crypto webhook secret. Every provider client
-reports itself *unconfigured* rather than throwing, so the app runs end-to-end on a
-partial `.env` and simply falls back to sandbox behaviour.
+Database tables are created automatically on first run, so there is no migration
+step: a fresh Neon branch comes up with the production shape on its own.
 
-## Surfaces
+## Scripts
 
-| Route | Who | What |
-| --- | --- | --- |
-| `/` | public | Marketing site |
-| `/dashboard` | any signed-in user | Wallet, cards, transactions, analytics |
-| `/checkout` | any signed-in user | Test merchant checkout (real charges) |
-| `/admin` | superadmins only | Command center (below) |
+| Command | What it does |
+| --- | --- |
+| `pnpm dev` | Development server |
+| `pnpm build` | Production build |
+| `pnpm start` | Serve the production build |
+| `pnpm lint` | ESLint |
 
-## Superadmin command center
+## Project structure
 
-`/admin` is the founder-only control surface. There are deliberately **no support
-roles** in it: no RBAC, no ticket queues, no agent assignment. Every operator is a
-superadmin, so each screen offers direct overrides rather than passive views.
-
-- **Command center** — live M-Pesa float, crypto hot wallet and issuer settlement
-  pool, each shown against what the ledger owes; revenue derived from the fee
-  schedule over settled volume.
-- **Users** — a 360° profile per account with one-click KYC bypass, editable
-  daily/monthly funding and spending caps, and Active / Frozen / Banned status.
-- **Transaction rails** — the two-rail intervention module for deposits whose
-  provider callback never arrived (M-Pesa STK and crypto webhooks).
-- **Card lifecycle** — every issued card, a PCI-conscious PAN/CVV reveal, and a
-  decline diagnostic pane that translates processor codes into next steps.
-- **Simulation lab** — rehearse payments, declines and lost webhooks against the
-  *real* authorisation path.
-- **Card issuers** — which provider mints new cards, automatic failover, and a
-  live health probe.
-- **Audit trail** — append-only record of every override.
-
-### The kill switch is real
-
-Engaging it writes to `platform_settings`, and `assertRailOpen` reads that on every
-deposit, card issuance and card authorisation. It takes effect on the very next
-request — not at the next deploy — and halts four rails independently: card minting,
-M-Pesa deposits, crypto deposits and card authorisations.
-
-### Every override is reasoned and audited
-
-No override endpoint accepts a request without a written reason, and each one writes
-to `admin_audit_log` — with the before/after pair — *before* it takes effect. A PAN
-reveal is audited before the issuer is even called, so a successful fetch can never
-go unrecorded.
-
-### Granting superadmin access
-
-Access is granted two ways:
-
-1. `users.is_admin` is already `true`, or
-2. the Clerk email is on the bootstrap list — `swippable@gmail.com`, plus anything
-   in the optional `ADMIN_EMAILS` env var (comma-separated).
-
-The founder account is created in Clerk and in Postgres independently and out of
-band, so its Clerk id is unknowable until it first signs in. That first request is
-where `resolveAdmin` stitches the identities together: it links `clerk_user_id`, sets
-`uuid` to match (the shape every other user row has), marks the row admin and
-verified, and writes an `ADMIN_BOOTSTRAPPED` audit entry. Nothing needs doing by hand
-beyond seeding the row:
-
-```sql
-INSERT INTO users (uuid, clerk_user_id, name, email, kyc_status, wallet_balance, is_admin, account_status)
-VALUES ('pending-clerk-link-swippable-admin', NULL, 'Swippable Superadmin',
-        'swippable@gmail.com', 'VERIFIED', 0.00, TRUE, 'ACTIVE')
-ON CONFLICT (email) DO UPDATE SET is_admin = TRUE;
+```
+src/
+  app/            Routes — pages and API handlers
+  components/     UI, grouped by surface
+  lib/            Business logic: money, ledger, providers, auth
+  types/          Shared client/server contracts
+scripts/          One-off maintenance and seed scripts
 ```
 
-Then create the matching user in the Clerk dashboard with the same email and sign in.
+A few conventions worth knowing before changing anything in `lib/`:
 
-A non-admin hitting `/admin` or any `/api/admin/*` route gets a **404**, not a 403 —
-so an unauthorised caller learns nothing about whether the surface exists or who is
-on the bootstrap list.
+- **Money is never a float.** Amounts are carried as decimal strings and computed
+  as bigint minor units. See `lib/money.ts`.
+- **A balance move and its ledger row are written together**, in one guarded SQL
+  statement, so the two can never disagree and a replayed webhook is a no-op
+  rather than a double charge.
+- **Provider clients degrade, they don't throw.** An unconfigured or failing
+  provider falls back rather than taking the request down with it.
 
-## Card issuers and failover
+## Contributing
 
-Two issuers are supported behind one interface, and which is primary is a runtime
-setting at `/admin/settings` rather than a deploy-time constant.
+1. Branch off `main` — `feat/…`, `fix/…` or `chore/…`
+2. Keep `pnpm lint` and `npx tsc --noEmit` clean
+3. Write commit messages that explain *why*, not just what
+4. Open a PR against `main` describing the change and how you tested it
 
-Issuance walks the configured order: primary, then the secondary if failover is on,
-then a local sandbox card if the sandbox fallback is on. A provider with no
-credentials is *skipped* rather than counted as a failure, so removing a set of keys
-quietly moves traffic to the other issuer instead of erroring on every request.
+Please don't commit `.env.local` or any real credentials. `.env.example` is the
+place to document a new variable.
 
-Each card records the issuer that actually minted it, and every later operation on
-that card — reveal, pause, limit change — routes back to the same one. Providers are
-never mixed for a single card.
+## Deployment
 
-The health probe on that screen calls the Issuing API rather than just checking for a
-key, because *configured* and *working* are different things: a valid Stripe key with
-Issuing not yet activated passes every credential check and fails every card call.
-
-### Stripe: two different products
-
-Worth keeping straight, because both are wired up and they do opposite things.
-
-| Module | Product | Direction | Needs activation? |
-| --- | --- | --- | --- |
-| `lib/stripe-issuing.ts` | Issuing | Mints cards *we* hand out | Yes — activate Issuing in the Stripe Dashboard |
-| `lib/stripe-checkout.ts` | Checkout | Accepts a card payment *to* us | No — works on any sandbox |
-
-The hosted Checkout path (`/api/checkout/stripe`) is the dependable way to exercise a
-card payment end to end while an Issuing application is still pending. Its credit is
-keyed on the Stripe session id, so returning to the success URL twice credits once.
-
-## Testing card payments
-
-`/checkout` is a merchant-shaped page that makes a **real charge**: on approval it
-calls `authoriseCardDebit`, the same guarded statement the live card webhook uses.
-
-Seed the two published sandbox test cards, plus enough float to authorise against:
-
-```bash
-node --env-file=.env.local scripts/seed-test-cards.mjs [email]
-```
-
-| Card | PAN | Expiry | CVV |
-| --- | --- | --- | --- |
-| Stripe test card | 4242 4242 4242 4242 | 12/34 | any 3 digits |
-| Flutterwave test card | 5531 8866 5214 2950 | 09/32 | 564 |
-
-At the checkout you pick the card rather than typing the PAN — matching runs on the
-last 4. Test triggers are stated on the page: CVV `000` forces an invalid-CVV
-decline, and `IR KP SY CU RU BY` force a blocked-country decline.
-
-## Crypto deposits (USDC on Base)
-
-A user reaches a deposit address two ways, and the difference is recorded rather
-than flattened:
-
-| Route | `source` | Verified? |
-| --- | --- | --- |
-| Signed in with a Base account / Coinbase Wallet via Clerk | `clerk` | **Yes** — Clerk made them sign a nonce |
-| Connected a wallet in the dashboard | `wallet_connect` | No |
-| Typed an address | `manual` | No |
-
-A Web3 sign-in *is* the wallet link. `syncClerkWeb3Wallets` runs on the auth path,
-so the address is picked up on the first authenticated request and can receive USDC
-immediately — no button to find. Only wallets Clerk reports as `verified` are linked;
-an unproven address must never receive credit.
-
-Users can link **several** addresses, one of which is the primary receive address.
-That matters because inbound transfers are matched to a user *by destination
-address*: a single overwritable column would orphan money sent to a previous one.
-A unique index enforces that an address belongs to exactly one account.
-
-### Making deposits actually credit
-
-The endpoint is built and hardened (`/api/webhooks/crypto`: HMAC-verified, replayed
-events deduplicated, confirmations enforced). What it needs is something watching the
-chain and calling it.
-
-Point an address-activity webhook — Alchemy, QuickNode, Helius, Coinbase Commerce —
-at `https://<your-domain>/api/webhooks/crypto`, signing with `CRYPTO_WEBHOOK_SECRET`.
-It must be updated with each newly linked address; `listCryptoWallets` is the source
-of truth for what to watch.
-
-Two settlement paths are supported, so either style of provider works:
-
-1. The user declared the deposit first → the PENDING row is matched by tx hash.
-2. The transfer arrives unannounced → the destination address is matched to its owner.
-
-Until an indexer is wired up, exercise the whole path from the admin **Simulation
-lab** (`CRYPTO_DEPOSIT_CONFIRMED`), which settles through the same statement the real
-webhook uses.
-
-### Keys
-
-| Variable | Needed for | Notes |
-| --- | --- | --- |
-| `CRYPTO_WEBHOOK_SECRET` | **Required** | HMAC-SHA256 secret; the webhook rejects everything without it |
-| `CRYPTO_MIN_CONFIRMATIONS` | Optional | Defaults to 3 |
-| `NEXT_PUBLIC_ONCHAINKIT_API_KEY` | Optional | Coinbase OnchainKit; only for the in-app connect UI |
-
-Clerk Web3 sign-in needs **no extra keys** — it is dashboard configuration on your
-existing Clerk instance, and the existing publishable/secret pair covers it.
-
-## Money handling
-
-Every amount is carried as a `Decimal` — a canonical `"0.00"` string — and computed
-internally as a bigint of minor units. No value ever passes through a JS float, so
-rounding drift is structurally impossible. See `src/lib/money.ts`.
-
-Balance movements and their ledger rows are always written in a single guarded SQL
-statement (`authoriseCardDebit`, `creditWallet`, `settlePendingDeposit`), so a balance
-and its ledger entry can never diverge, and webhook redelivery is a no-op rather than
-a double charge.
-
-## Schema
-
-Tables are created idempotently on first use — `ensureSchema` in `src/lib/db.ts` for
-the core app, `ensureAdminSchema` in `src/lib/admin-db.ts` for the command center — so
-a fresh Neon branch (preview or CI) comes up with the exact production shape without a
-migration step.
+Deployed on Vercel from `main`. Set the same environment variables in the Vercel
+project, marking secrets as **Sensitive**, and point `NEXT_PUBLIC_APP_URL` at the
+deployment URL — provider callbacks and redirects are built from it.
