@@ -1,9 +1,9 @@
 'use client'
 import Link from 'next/link'
-import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
+import HeroArtwork from './HeroArtwork'
 
 const leftAnimation = {
   initial: { x: '-100%', opacity: 0 },
@@ -79,38 +79,7 @@ const Hero = () => {
           </motion.div>
 
           <motion.div {...rightAnimation}>
-            {/*
-              The artwork ships in the template's original green. The overlay
-              re-tints it to brand violet: `mix-blend-color` keeps the photo's
-              luminance, so the phone and hand still read as objects, while
-              taking hue and saturation from the gradient. The mask confines the
-              tint to the artwork's opaque pixels so none of it spills onto the
-              page, and `isolate` keeps the blend inside this box.
-            */}
-            <div className='relative isolate mx-auto w-full max-w-[584px]'>
-              <Image
-                src='/images/hero/hero-banner-img.png'
-                alt='Swippable wallet and virtual card on mobile'
-                width={584}
-                height={582}
-                priority
-                className='h-auto w-full'
-              />
-              <div
-                aria-hidden
-                className='pointer-events-none absolute inset-0 bg-gradient-to-br from-[#6330cf] via-[#8553ec] to-[#12b88f] opacity-80 mix-blend-color'
-                style={{
-                  WebkitMaskImage: 'url(/images/hero/hero-banner-img.png)',
-                  maskImage: 'url(/images/hero/hero-banner-img.png)',
-                  WebkitMaskSize: 'contain',
-                  maskSize: 'contain',
-                  WebkitMaskRepeat: 'no-repeat',
-                  maskRepeat: 'no-repeat',
-                  WebkitMaskPosition: 'center',
-                  maskPosition: 'center',
-                }}
-              />
-            </div>
+            <HeroArtwork className='relative mx-auto w-full max-w-[584px]' />
           </motion.div>
         </div>
 
