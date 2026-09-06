@@ -1,7 +1,7 @@
 # Swippable
 
 Virtual cards funded by M-Pesa and crypto. Next.js App Router, Clerk for identity,
-Neon Postgres for the ledger, Flutterwave for card issuing.
+Neon Postgres for the ledger, and Flutterwave or Stripe Issuing for card issuing.
 
 ## Getting started
 
@@ -23,6 +23,7 @@ partial `.env` and simply falls back to sandbox behaviour.
 | --- | --- | --- |
 | `/` | public | Marketing site |
 | `/dashboard` | any signed-in user | Wallet, cards, transactions, analytics |
+| `/checkout` | any signed-in user | Test merchant checkout (real charges) |
 | `/admin` | superadmins only | Command center (below) |
 
 ## Superadmin command center
@@ -42,6 +43,8 @@ superadmin, so each screen offers direct overrides rather than passive views.
   decline diagnostic pane that translates processor codes into next steps.
 - **Simulation lab** — rehearse payments, declines and lost webhooks against the
   *real* authorisation path.
+- **Card issuers** — which provider mints new cards, automatic failover, and a
+  live health probe.
 - **Audit trail** — append-only record of every override.
 
 ### The kill switch is real
@@ -85,6 +88,57 @@ Then create the matching user in the Clerk dashboard with the same email and sig
 A non-admin hitting `/admin` or any `/api/admin/*` route gets a **404**, not a 403 —
 so an unauthorised caller learns nothing about whether the surface exists or who is
 on the bootstrap list.
+
+## Card issuers and failover
+
+Two issuers are supported behind one interface, and which is primary is a runtime
+setting at `/admin/settings` rather than a deploy-time constant.
+
+Issuance walks the configured order: primary, then the secondary if failover is on,
+then a local sandbox card if the sandbox fallback is on. A provider with no
+credentials is *skipped* rather than counted as a failure, so removing a set of keys
+quietly moves traffic to the other issuer instead of erroring on every request.
+
+Each card records the issuer that actually minted it, and every later operation on
+that card — reveal, pause, limit change — routes back to the same one. Providers are
+never mixed for a single card.
+
+The health probe on that screen calls the Issuing API rather than just checking for a
+key, because *configured* and *working* are different things: a valid Stripe key with
+Issuing not yet activated passes every credential check and fails every card call.
+
+### Stripe: two different products
+
+Worth keeping straight, because both are wired up and they do opposite things.
+
+| Module | Product | Direction | Needs activation? |
+| --- | --- | --- | --- |
+| `lib/stripe-issuing.ts` | Issuing | Mints cards *we* hand out | Yes — activate Issuing in the Stripe Dashboard |
+| `lib/stripe-checkout.ts` | Checkout | Accepts a card payment *to* us | No — works on any sandbox |
+
+The hosted Checkout path (`/api/checkout/stripe`) is the dependable way to exercise a
+card payment end to end while an Issuing application is still pending. Its credit is
+keyed on the Stripe session id, so returning to the success URL twice credits once.
+
+## Testing card payments
+
+`/checkout` is a merchant-shaped page that makes a **real charge**: on approval it
+calls `authoriseCardDebit`, the same guarded statement the live card webhook uses.
+
+Seed the two published sandbox test cards, plus enough float to authorise against:
+
+```bash
+node --env-file=.env.local scripts/seed-test-cards.mjs [email]
+```
+
+| Card | PAN | Expiry | CVV |
+| --- | --- | --- | --- |
+| Stripe test card | 4242 4242 4242 4242 | 12/34 | any 3 digits |
+| Flutterwave test card | 5531 8866 5214 2950 | 09/32 | 564 |
+
+At the checkout you pick the card rather than typing the PAN — matching runs on the
+last 4. Test triggers are stated on the page: CVV `000` forces an invalid-CVV
+decline, and `IR KP SY CU RU BY` force a blocked-country decline.
 
 ## Money handling
 
