@@ -1,28 +1,38 @@
-import Image from 'next/image'
 import Link from 'next/link'
+import { ArrowUpRight } from 'lucide-react'
 
 const Platform = () => {
   return (
-    <section className='md:pt-44 sm:pt-24 pt-12 relative z-1'>
-      <div className='container px-4'>
-        <div className="bg-section/10 px-16 py-14 rounded-3xl border-2 border-white/10 grid grid-cols-12 items-center before:content-[''] before:absolute relative before:w-96 before:h-64 before:bg-start before:bg-no-repeat before:-bottom-6 overflow-hidden lg:before:right-0 before:-z-1 before:opacity-10 ">
-          <div className='lg:col-span-8 col-span-12'>
-            <h2 className='text-white sm:text-[40px] text-3xl mb-6'>
-              Swippable: Secure Payments Platform
-            </h2>
-            <p className='text-muted/60 text-lg'>
-              Our platform provides secure wallet management, virtual cards, and seamless payments for users across Africa.
-            </p>
-          </div>
-          <div className='lg:col-span-4 col-span-12'>
-            <div className='flex lg:justify-end lg:mt-0 mt-7 justify-center'>
-              <Link
-                href='/#work'
-                className='flex items-center gap-2.5 text-white bg-gradient-to-r from-[#6330cf] to-[#8553ec] hover:opacity-95 border border-purple-500/30 py-3 px-5 rounded-lg sm:text-21 text-lg font-medium shadow-lg shadow-purple-500/20 transition-all'>
-                Learn More
-                <Image src={"/images/icons/icon-arrow.svg"} alt="icon" width={20} height={20} className='brightness-0 invert' />
-              </Link>
-            </div>
+    <section className='py-16 sm:py-24' id='platform'>
+      {/* Full-bleed violet, so the band reads as a break in the dark page. */}
+      <div className='bg-[#8a6bd6] px-6 py-24 sm:px-10 sm:py-32'>
+        <div className='container'>
+          <p className='text-[11px] font-semibold uppercase tracking-[0.18em] text-white'>
+            Ready when you are
+          </p>
+
+          <h2 className='mt-6 max-w-4xl text-5xl font-medium leading-[0.95] tracking-tight text-black sm:text-7xl lg:text-8xl'>
+            Start spending.
+          </h2>
+
+          <p className='mt-8 max-w-md text-lg leading-relaxed text-black/80'>
+            Open the dashboard, top up with M-Pesa, and issue your first virtual card before the
+            kettle boils.
+          </p>
+
+          <div className='mt-10 flex flex-wrap items-center gap-4'>
+            <Link
+              href='/dashboard'
+              className='group inline-flex items-center gap-2.5 rounded-full bg-black px-8 py-4 font-semibold text-white transition-transform hover:-translate-y-0.5'>
+              Launch Dashboard
+              <ArrowUpRight size={17} className='transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5' />
+            </Link>
+            <Link
+              href='/sign-up'
+              className='group inline-flex items-center gap-2.5 rounded-full border border-black/70 px-8 py-4 font-semibold text-black transition-colors hover:bg-black hover:text-white'>
+              Create an account
+              <ArrowUpRight size={17} className='transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5' />
+            </Link>
           </div>
         </div>
       </div>

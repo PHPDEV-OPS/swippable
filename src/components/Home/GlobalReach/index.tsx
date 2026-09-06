@@ -1,34 +1,30 @@
-"use client";
-import { GlobalReachData } from "./data";
-import CountUp from 'react-countup'
-import { useInView } from 'react-intersection-observer';
+import { GlobalReachData } from './data'
 
+/**
+ * Capability band.
+ *
+ * Deliberately factual rather than a volume scoreboard: these are things the
+ * platform demonstrably does today. Swap in real traffic numbers here once
+ * there are some worth quoting.
+ */
 const GlobalReach = () => {
-    const { ref, inView } = useInView({
-        triggerOnce: true,
-        threshold: 0.5,
-    });
     return (
-        <section>
-            <div className="container">
-                <div ref={ref} className='grid grid-cols-1 gap-6 pt-20 sm:grid-cols-2 lg:grid-cols-4 xl:gap-10'>
-                    {GlobalReachData.map((item, index) => {
-                        return (
-                            <div
-                                key={index}
-                                style={{ transitionDelay: `${index * 70}ms` }}
-                                className={`flex flex-col items-center gap-4 rounded-xl border border-white/10 bg-white/5 px-5 py-4 transition-all duration-500 ease-out hover:border-primary/30 hover:bg-white/[0.07] md:px-6 md:py-8 ${
-                                    inView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-                                }`}>
-                                <h3 className="text-3xl font-black text-primary">
-                                    {item.prefix && item.prefix}
-                                    {item.count == 247 ? "24/7" : inView ? <CountUp start={0} end={item.count} duration={3} /> : "0"}
-                                    {item.postfix && item.postfix}
-                                </h3>
-                                <p className='text-white/80'>{item.title}</p>
-                            </div>
-                        )
-                    })}
+        <section className='py-16 sm:py-20'>
+            <div className='container px-4'>
+                <div className='grid grid-cols-1 divide-y divide-white/10 border-y border-white/10 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 sm:[&>*:nth-child(-n+2)]:border-b sm:[&>*:nth-child(-n+2)]:border-white/10 lg:[&>*]:border-b-0'>
+                    {GlobalReachData.map((item) => (
+                        <div
+                            key={item.id}
+                            className='px-0 py-8 sm:px-7 lg:border-l lg:border-white/10 lg:first:border-l-0 lg:first:pl-0'>
+                            <p className='text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45'>
+                                {item.label}
+                            </p>
+                            <p className='mt-4 text-4xl font-medium tracking-tight text-primary sm:text-[42px]'>
+                                {item.value}
+                            </p>
+                            <p className='mt-3 text-sm text-white/55'>{item.detail}</p>
+                        </div>
+                    ))}
                 </div>
             </div>
         </section>

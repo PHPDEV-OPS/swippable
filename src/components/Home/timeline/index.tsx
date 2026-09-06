@@ -15,10 +15,10 @@ const TimeLine = () => {
             transition={{ duration: 0.55, ease: 'easeOut' }}>
             <div className='flex flex-col gap-4'>
               <p className='text-white font-medium'>
-                We deliver <span className='text-primary'>best solution</span>
+                How it <span className='text-primary'>works</span>
               </p>
               <h2 className='text-white sm:text-5xl text-3xl font-medium lg:w-4/5 mx-auto mb-20'>
-                Secure payments and virtual cards for seamless transactions
+                One wallet behind every card you issue
               </h2>
             </div>
           </motion.div>
@@ -39,15 +39,15 @@ const TimeLine = () => {
               </div>
               <div className='absolute lg:top-40 top-36 lg:left-0 -left-20 w-72 flex items-center gap-6'>
                 <div className='text-right'>
-                  <h3 className='text-muted text-2xl mb-3'>USSD Connections</h3>
+                  <h3 className='text-muted text-2xl mb-3'>One shared balance</h3>
                   <p className='text-lg text-muted/60'>
-                    Connect via USSD for payments even with low network connectivity
+                    Every card spends from the same wallet, so nothing sits stranded
                   </p>
                 </div>
                 <div className='bg-primary/15 backdrop-blur-xs p-6 h-fit rounded-full'>
                   <Image
                     src='/images/solution/solution-icon-1.svg'
-                    alt='USSD Connections'
+                    alt='One shared balance'
                     width={44}
                     height={44}
                     className='w-16 h-16 '
@@ -58,29 +58,29 @@ const TimeLine = () => {
                 <div className='bg-primary/15 backdrop-blur-xs p-6 h-fit rounded-full'>
                   <Image
                     src='/images/solution/solution-icon-2.svg'
-                    alt='Virtual Card Generation'
+                    alt='Instant virtual cards'
                     width={44}
                     height={44}
                   />
                 </div>
                 <div className='text-left'>
-                  <h3 className='text-muted text-2xl mb-3'>Virtual Card Generation</h3>
+                  <h3 className='text-muted text-2xl mb-3'>Instant virtual cards</h3>
                   <p className='text-lg text-muted/60'>
-                  Generate virtual cards instantly for secure online payments
+                  Issue a card against your balance in seconds, limit included
                   </p>
                 </div>
               </div>
               <div className='absolute lg:bottom-40 bottom-36 lg:left-0 -left-20 w-72 flex items-center gap-6'>
                 <div className='text-right'>
-                  <h3 className='text-muted text-2xl mb-3'>Secure Transactions</h3>
+                  <h3 className='text-muted text-2xl mb-3'>Real-time authorisation</h3>
                   <p className='text-lg text-muted/60'>
-                  Make payments with bank-level security and low connectivity support
+                  Every charge is checked against the limit and the balance first
                   </p>
                 </div>
                 <div className='bg-primary/15 backdrop-blur-xs p-6 h-fit rounded-full'>
                   <Image
                     src='/images/solution/solution-icon-3.svg'
-                    alt='Secure Transactions'
+                    alt='Real-time authorisation'
                     width={44}
                     height={44}
                     className='w-16 h-16 '
@@ -91,7 +91,7 @@ const TimeLine = () => {
                 <div className='bg-primary/15 backdrop-blur-xs px-6 py-2 h-fit rounded-full'>
                   <Image
                     src='/images/solution/solution-icon-4.svg'
-                    alt='Transaction Management'
+                    alt='Pause and release'
                     width={44}
                     height={44}
                     className='w-16 h-16'
@@ -99,10 +99,10 @@ const TimeLine = () => {
                 </div>
                 <div className='text-left'>
                   <h3 className='text-muted text-nowrap text-2xl mb-3'>
-                    Transaction Management
+                    Pause and release
                   </h3>
                   <p className='text-lg text-muted/60'>
-                  Monitor and manage all your payments and virtual cards in one dashboard
+                  Freeze a card, or release what it has not spent back to the wallet
                   </p>
                 </div>
               </div>

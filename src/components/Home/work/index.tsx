@@ -65,9 +65,9 @@ const Work = () => {
             viewport={{ once: true, amount: 0.2 }}
             transition={{ duration: 0.6, delay: 0.12, ease: 'easeOut' }}
             className='col-span-12 lg:col-span-7'>
-            {/* The capture is already dark and on-brand, so it needs no tint -
-                just a rounded edge and a violet lift off the page. */}
-            <div className='overflow-hidden rounded-2xl border border-white/10 shadow-[0_30px_80px_-24px_rgba(76,29,190,0.55)]'>
+            {/* Already dark and on-brand, so it needs no tint - just a
+                rounded edge and a neutral lift off the page. */}
+            <div className='overflow-hidden rounded-2xl border border-white/10 shadow-[0_30px_70px_-28px_rgba(0,0,0,0.9)]'>
               <Image
                 src='/images/showcase/dashboard-hero.png'
                 alt='The Swippable dashboard: wallet balance, cards, activity and recent transactions'

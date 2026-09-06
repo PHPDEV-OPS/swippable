@@ -2,7 +2,7 @@
 import { upgradeData } from '@/app/api/data'
 import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
-import { CardLimitsIllustration } from '../illustrations'
+import Image from 'next/image'
 
 const Upgrade = () => {
   return (
@@ -21,8 +21,8 @@ const Upgrade = () => {
               Control every card, from one balance
             </h2>
             <p className='mb-7 text-lg text-white/60'>
-              Give each card its own limit, pause it in a tap, and release what it has not spent
-              back to your wallet. No capital sits idle.
+              One balance funds every card. The wallet shows exactly what is allocated, what is
+              free, and how the balance got there &mdash; rebuilt from the ledger, never estimated.
             </p>
 
             <div className='grid gap-5 sm:grid-cols-2'>
@@ -48,7 +48,16 @@ const Upgrade = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}>
-            <CardLimitsIllustration className='mx-auto h-auto w-full max-w-[540px]' />
+            <div className='overflow-hidden rounded-2xl border border-white/10 shadow-[0_30px_70px_-28px_rgba(0,0,0,0.9)]'>
+              <Image
+                src='/images/showcase/why-swippable.png'
+                alt='The Swippable wallet: total balance, what is allocated to cards, and the balance progression'
+                width={945}
+                height={527}
+                sizes='(min-width: 1024px) 50vw, 100vw'
+                className='h-auto w-full'
+              />
+            </div>
           </motion.div>
         </div>
       </div>

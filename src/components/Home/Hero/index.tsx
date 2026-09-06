@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
+import CardSlider from './slider'
 import HeroArtwork from './HeroArtwork'
 
 const leftAnimation = {
@@ -26,13 +27,6 @@ const stats = [
 const Hero = () => {
   return (
     <section className='relative z-1 overflow-hidden py-24 pt-40 sm:pt-48' id='main-banner'>
-      {/* Brand wash behind the fold */}
-      <div
-        aria-hidden
-        className='pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full opacity-40 blur-[140px]'
-        style={{ background: 'radial-gradient(circle, #7042f4 0%, #12b88f 55%, transparent 75%)' }}
-      />
-
       <div className='container relative'>
         <div className='grid grid-cols-1 items-center gap-12 md:grid-cols-2 md:gap-10'>
           <motion.div {...leftAnimation} className='flex flex-col gap-8'>
@@ -84,6 +78,7 @@ const Hero = () => {
         </div>
 
         <BrandLogo />
+        <CardSlider />
       </div>
     </section>
   )

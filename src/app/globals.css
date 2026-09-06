@@ -232,6 +232,15 @@
 
 html {
   scroll-behavior: smooth;
+  /* The header floats over the page, so anchored sections need to stop clear
+     of it rather than sliding underneath. */
+  scroll-padding-top: 6.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 /* Connection map. `non-scaling-stroke` keeps arc weight constant however the

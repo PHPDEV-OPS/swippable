@@ -1,26 +1,31 @@
-export const GlobalReachData = [
+export const GlobalReachData: {
+    id: number
+    label: string
+    value: string
+    detail: string
+}[] = [
     {
         id: 1,
-        count: 100,
-        postfix:"K+",
-        title: "Active users in Kenya"
+        label: 'Top-up rails',
+        value: 'M-Pesa + USDC',
+        detail: 'Daraja STK push, or USDC on Base',
     },
     {
         id: 2,
-        count: 247,
-        title: "24/7 Support"
+        label: 'Card issuing',
+        value: 'Instant',
+        detail: 'Issued against your wallet balance',
     },
     {
         id: 3,
-        count: 50,
-        postfix:"+",
-        title: "African countries"
+        label: 'Spending limits',
+        value: 'Per card',
+        detail: 'Set, pause or release in a tap',
     },
     {
         id: 4,
-        count: 1,
-        prefix: "$",
-        postfix:"M+",
-        title: "Transactions processed"
+        label: 'Authorisation',
+        value: 'Real time',
+        detail: 'Checked against the wallet on every charge',
     },
 ]

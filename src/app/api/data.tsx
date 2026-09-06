@@ -102,14 +102,12 @@ export const portfolioData: { image: string; title: string }[] = [
 ];
 
 export const upgradeData: { title: string }[] = [
-  { title: "Bank-level security" },
-  { title: "Low transaction fees" },
-  { title: "Instant virtual cards" },
-  { title: "Mobile-first design" },
-  { title: "24/7 customer support" },
-  { title: "Africa-focused payments" },
-  { title: "Easy integration" },
-  { title: "Real-time transactions" },
+  { title: "One balance, many cards" },
+  { title: "Per-card spending limits" },
+  { title: "M-Pesa and USDC top-ups" },
+  { title: "Pause or close in a tap" },
+  { title: "Every figure from the ledger" },
+  { title: "No PAN or CVV stored" },
 ];
 
 export const perksData: {
@@ -145,27 +143,27 @@ export const timelineData: {
   position: string;
 }[] = [
   {
-    icon: "/images/timeline/icon-planning.svg",
-    title: "USSD Connections",
-    text: "Connect via USSD for payments even with low network connectivity",
+    icon: "/images/solution/solution-icon-1.svg",
+    title: "One shared balance",
+    text: "Every card spends from the same wallet, so nothing sits stranded on a card you are not using",
     position: "md:top-0 md:left-0",
   },
   {
-    icon: "/images/timeline/icon-refinement.svg",
-    title: "Virtual Card Generation",
-    text: "Generate virtual cards instantly for secure online payments",
+    icon: "/images/solution/solution-icon-2.svg",
+    title: "Instant virtual cards",
+    text: "Issue a card against your balance in seconds, with its own limit from the moment it exists",
     position: "md:top-0 md:right-0",
   },
   {
-    icon: "/images/timeline/icon-prototype.svg",
-    title: "Secure Transactions",
-    text: "Make payments with bank-level security and low connectivity support",
+    icon: "/images/solution/solution-icon-3.svg",
+    title: "Real-time authorisation",
+    text: "Every charge is checked against the card limit and the wallet balance before it settles",
     position: "md:bottom-0 md:left-0",
   },
   {
-    icon: "/images/timeline/icon-support.svg",
-    title: "Transaction Management",
-    text: "Monitor and manage all your payments and virtual cards in one dashboard",
+    icon: "/images/solution/solution-icon-4.svg",
+    title: "Pause and release",
+    text: "Freeze a card in a tap, or release what it has not spent straight back to your wallet",
     position: "md:bottom-0 md:right-0",
   },
 ];
