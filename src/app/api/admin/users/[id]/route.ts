@@ -16,17 +16,25 @@ import {
     writeAudit,
 } from '@/lib/admin-db'
 import { serializeAdminCard, serializeAdminTransaction, serializeAdminUser } from '@/lib/admin-serialize'
-import { pushNotification } from '@/lib/db'
+import { listKycAttempts, pushNotification } from '@/lib/db'
 import { badRequest, notFound, readJson, withRouteErrors } from '@/lib/http'
 import { decimal, formatMoney, toMinor } from '@/lib/money'
-import type { AccountStatus, AdminUserDetail, UserOverrideRequest } from '@/types/admin'
+import type {
+    AccountStatus,
+    AdminUserDetail,
+    KycIdentityRecord,
+    UserOverrideRequest,
+} from '@/types/admin'
 import type { KycStatus } from '@/types/api'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
-const KYC_VALUES: KycStatus[] = ['PENDING', 'VERIFIED', 'REJECTED']
+// Admins may also park an account back at UNVERIFIED (ask the user to redo
+// the check) or mark it FAILED, so the override vocabulary matches the
+// lifecycle the verification flow actually produces.
+const KYC_VALUES: KycStatus[] = ['UNVERIFIED', 'PENDING', 'VERIFIED', 'FAILED', 'REJECTED']
 const STATUS_VALUES: AccountStatus[] = ['ACTIVE', 'FROZEN', 'BANNED']
 
 /** The 360° profile: identity, limits with live usage, cards, ledger, trail. */
@@ -37,11 +45,12 @@ export const GET = withRouteErrors('admin:user:get', async (_request: Request, c
     const row = await findAdminUser(id)
     if (!row) notFound('User not found')
 
-    const [usage, cards, transactions, auditTrail] = await Promise.all([
+    const [usage, cards, transactions, auditTrail, kycAttempts] = await Promise.all([
         getLimitUsage(row.id),
         listAdminCards({ userId: row.id, limit: 24 }),
         listAdminTransactions({ userId: row.id, limit: 30 }),
         listAudit(30, 'USER', String(row.id)),
+        listKycAttempts(row.id, 20),
     ])
 
     const body: AdminUserDetail = {
@@ -51,6 +60,16 @@ export const GET = withRouteErrors('admin:user:get', async (_request: Request, c
         adminNotes: row.admin_notes ?? null,
         kycReviewedAt: row.kyc_reviewed_at ? new Date(row.kyc_reviewed_at).toISOString() : null,
         kycReviewedBy: row.kyc_reviewed_by ?? null,
+        kycIdentity: serializeKycIdentity(row),
+        kycAttempts: kycAttempts.map((attempt) => ({
+            id: Number(attempt.id),
+            provider: String(attempt.provider ?? 'dojah'),
+            outcome: String(attempt.outcome),
+            reference: attempt.reference ?? null,
+            mismatchedFields: attempt.mismatched_fields ?? [],
+            detail: attempt.detail ?? null,
+            createdAt: new Date(attempt.created_at).toISOString(),
+        })),
         onChainAddress: row.base_account_address ?? null,
         cards: cards.map(serializeAdminCard),
         recentTransactions: transactions.map(serializeAdminTransaction),
@@ -59,6 +78,34 @@ export const GET = withRouteErrors('admin:user:get', async (_request: Request, c
 
     return NextResponse.json(body)
 })
+
+/**
+ * Shapes the stored identity for review, masking the national ID to its last
+ * four digits. Returns null when nothing has been verified yet, so the UI can
+ * distinguish "no identity on file" from "identity with blank fields".
+ */
+function serializeKycIdentity(row: {
+    first_name?: string | null
+    last_name?: string | null
+    national_id_number?: string | null
+    date_of_birth?: string | null
+    verified_at?: string | null
+    dojah_reference?: string | null
+}): KycIdentityRecord | null {
+    const hasIdentity = row.first_name || row.last_name || row.national_id_number
+    if (!hasIdentity) return null
+
+    const id = row.national_id_number ?? null
+
+    return {
+        firstName: row.first_name ?? null,
+        lastName: row.last_name ?? null,
+        nationalIdMasked: id ? `${'•'.repeat(Math.max(0, id.length - 4))}${id.slice(-4)}` : null,
+        dateOfBirth: row.date_of_birth ? String(row.date_of_birth).slice(0, 10) : null,
+        verifiedAt: row.verified_at ? new Date(row.verified_at).toISOString() : null,
+        dojahReference: row.dojah_reference ?? null,
+    }
+}
 
 /**
  * The override endpoint.

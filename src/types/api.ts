@@ -14,7 +14,18 @@ export type TransactionType = 'CREDIT' | 'DEBIT'
 export type TransactionChannel = 'MPESA' | 'CRYPTO' | 'STRIPE' | 'CARD_TRANSACTION' | 'CARD_FUNDING' | 'TRANSFER'
 export type TransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED'
 export type CardStatus = 'ACTIVE' | 'PAUSED'
-export type KycStatus = 'PENDING' | 'VERIFIED' | 'REJECTED'
+/**
+ * KYC lifecycle. `UNVERIFIED` is the resting state before a submission,
+ * `PENDING` covers a submission awaiting an answer (an async provider flow),
+ * and `FAILED` means the identity check ran and did not pass - it is retryable,
+ * unlike `REJECTED`, which only an admin sets and only a human can undo.
+ */
+export type KycStatus = 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'FAILED' | 'REJECTED'
+
+/** The single predicate the card-issuing gate and the UI both read. */
+export function isKycVerified(status: string | null | undefined): boolean {
+    return String(status ?? '').toUpperCase() === 'VERIFIED'
+}
 
 export interface MeResponse {
     id: number
@@ -81,7 +92,12 @@ export interface LedgerTransaction {
 export interface LinkedWallet {
     address: string
     chain: string
-    source: 'clerk' | 'wallet_connect' | 'manual'
+    /**
+     * How the address came to be here. `deposit_address` is the one Swippable
+     * derived for this user - it is not a wallet they control, so the UI must
+     * never offer to unlink it.
+     */
+    source: 'clerk' | 'wallet_connect' | 'manual' | 'deposit_address'
     verified: boolean
     /** The address inbound transfers are expected at. */
     isPrimary: boolean

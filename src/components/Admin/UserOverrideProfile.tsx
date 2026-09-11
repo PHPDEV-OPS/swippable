@@ -33,7 +33,7 @@ import {
 } from './primitives'
 
 type Pending =
-    | { kind: 'KYC'; status: 'VERIFIED' | 'REJECTED' | 'PENDING' }
+    | { kind: 'KYC'; status: 'VERIFIED' | 'REJECTED' | 'PENDING' | 'UNVERIFIED' }
     | { kind: 'STATUS'; status: AccountStatus }
     | { kind: 'LIMITS' }
     | { kind: 'CREDIT' }
@@ -232,6 +232,56 @@ export function UserOverrideProfile({ userId }: { userId: string }) {
                         </div>
                     </div>
 
+                    {/*
+                      What the provider actually confirmed. Without this an
+                      admin approving or rejecting is working blind - the whole
+                      point of a manual review is seeing the evidence first.
+                    */}
+                    {data.kycIdentity && (
+                        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-2xl bg-[#fafafb] p-4 dark:bg-white/[0.03]">
+                            <IdentityField label="Legal name"
+                                value={[data.kycIdentity.firstName, data.kycIdentity.lastName].filter(Boolean).join(' ') || null} />
+                            <IdentityField label="Date of birth" value={data.kycIdentity.dateOfBirth} />
+                            <IdentityField label="National ID" value={data.kycIdentity.nationalIdMasked} />
+                            <IdentityField label="Provider ref" value={data.kycIdentity.dojahReference} />
+                        </dl>
+                    )}
+
+                    {data.kycAttempts.length > 0 && (
+                        <div className="mt-4">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#81858c]">
+                                Verification attempts
+                            </p>
+                            <ul className="mt-2 space-y-1.5">
+                                {data.kycAttempts.slice(0, 6).map((attempt) => (
+                                    <li
+                                        key={attempt.id}
+                                        className="flex items-center justify-between gap-3 rounded-xl bg-[#fafafb] px-3 py-2 dark:bg-white/[0.03]"
+                                    >
+                                        <span className="flex items-center gap-2 min-w-0">
+                                            <Pill tone={attempt.outcome === 'VERIFIED' ? 'success' : 'danger'}>
+                                                {attempt.outcome}
+                                            </Pill>
+                                            {attempt.mismatchedFields.length > 0 && (
+                                                <span className="truncate text-[11.5px] text-[#81858c]">
+                                                    mismatch: {attempt.mismatchedFields.join(', ')}
+                                                </span>
+                                            )}
+                                            {attempt.mismatchedFields.length === 0 && attempt.detail && (
+                                                <span className="truncate text-[11.5px] text-[#81858c]">
+                                                    {attempt.detail}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <span className="shrink-0 text-[11.5px] text-[#a8aab1]">
+                                            <TimeAgo iso={attempt.createdAt} />
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
                     <div className="mt-4 flex flex-wrap gap-2">
                         <Button
                             variant="primary"
@@ -248,12 +298,17 @@ export function UserOverrideProfile({ userId }: { userId: string }) {
                         >
                             Reject
                         </Button>
+                        {/*
+                          Resets to UNVERIFIED, not PENDING: PENDING now means
+                          "submitted, awaiting an answer", so parking an account
+                          there would show the user a check that is not running.
+                        */}
                         <Button
                             variant="ghost"
-                            disabled={data.kycStatus === 'PENDING'}
-                            onClick={() => setPending({ kind: 'KYC', status: 'PENDING' })}
+                            disabled={data.kycStatus === 'UNVERIFIED'}
+                            onClick={() => setPending({ kind: 'KYC', status: 'UNVERIFIED' })}
                         >
-                            Reset to pending
+                            Require re-verification
                         </Button>
                     </div>
                 </Panel>
@@ -583,6 +638,22 @@ export function UserOverrideProfile({ userId }: { userId: string }) {
                 error={override.error ? (override.error as Error).message : null}
                 onConfirm={submit}
             />
+        </div>
+    )
+}
+
+/**
+ * One field of the verified identity. Renders an em dash rather than nothing
+ * when a value is absent, so a reviewer can tell "not captured" apart from a
+ * field that failed to render.
+ */
+function IdentityField({ label, value }: { label: string; value: string | null }) {
+    return (
+        <div className="min-w-0">
+            <dt className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#81858c]">{label}</dt>
+            <dd className="mt-0.5 truncate text-[13px] font-semibold text-[#1c1c24] dark:text-[#e4e5eb]">
+                {value ?? '—'}
+            </dd>
         </div>
     )
 }

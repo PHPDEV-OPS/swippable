@@ -36,9 +36,17 @@ endif
 :Authenticated session established;
 :Open user dashboard;
 
-if (KYC required?) then (yes)
-  :Submit KYC details;
-  :KYC status stored\n(/api/kyc);
+if (KYC verified?) then (no)
+  :Redirect to\n/dashboard/kyc-verification;
+  :Enter first name, last name,\nNational ID and date of birth;
+  :Match against Kenyan national\ndatabase via Dojah\n(/api/kyc/verify);
+  if (Identity matched?) then (yes)
+    :kyc_status = VERIFIED, identity\nand timestamp written in one\nserializable transaction;
+    :Receive verification notification;
+  else (no)
+    :kyc_status = FAILED,\nattempt logged;
+    :Retry (max 5 per hour)\nor admin override;
+  endif
 endif
 
 fork
@@ -55,10 +63,17 @@ fork again
       :M-Pesa callback received;
       :Verify callback and settle\nPENDING deposit;
     elseif (Funding rail is USDC?) then (USDC on Base)
-      :Link or select Base wallet;
-      :Declare deposit or copy\nprimary receiving address;
+      :Scan QR or copy personal\ndeposit address;
+      note right
+        Derived per user at account creation
+        (BIP-44 m/44'/60'/0'/0/{user id}) and
+        registered with the chain listener, so
+        an arriving transfer is attributed by
+        destination with nothing to declare.
+      end note
+      :Send USDC from any wallet\n(or a linked one);
       :USDC transfer confirmed\nby chain indexer;
-      :Match wallet address or\nsettle declared deposit;
+      :Match destination address or\nsettle declared deposit;
     else (Stripe checkout)
       :Create checkout session;
       :Complete Stripe payment;
@@ -71,6 +86,13 @@ fork again
 fork again
   :Open Cards;
   if (Need a card?) then (yes)
+    :Open /dashboard/cards/create;
+    note right
+      The server layout re-reads kyc_status
+      and redirects unless it is VERIFIED.
+      /api/cards/issue enforces the same
+      check independently of the browser.
+    end note
     :Choose holder, currency\nand funding amount;
     :Request virtual card\n(/api/cards/issue);
     :Check rail and available balance;
@@ -110,6 +132,11 @@ note right
   Every money movement is represented in the
   Neon ledger. Provider callbacks are idempotent:
   duplicate events do not double-credit or charge.
+
+  KYC is enforced on the server, never the client.
+  One national ID may back only one account, and
+  card issuance is refused unless kyc_status is
+  VERIFIED on the Neon row itself.
 end note
 
 stop

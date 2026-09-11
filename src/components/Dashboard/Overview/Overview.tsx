@@ -37,6 +37,7 @@ import {
 import { cn } from '@/lib/utils'
 import { formatMoney } from '@/lib/money'
 import { ApiRequestError, useDashboardSummary, useIssueCard, useMe } from '@/lib/client-api'
+import { KycBanner } from '@/components/Dashboard/Kyc/KycBanner'
 import { useIsDesktop } from '@/lib/use-media-query'
 import { CardStack } from '@/components/Dashboard/Cards/CardStack'
 import { CARD_ASPECT_RATIO } from '@/components/Dashboard/Cards/SwippableCard'
@@ -301,6 +302,10 @@ export function Overview() {
 
     return (
         <div className="space-y-6 pb-12 sm:space-y-7">
+            {/* Verification is the first step after sign-up, so the prompt sits
+                above everything else rather than buried under the cards. */}
+            <KycBanner />
+
             {summary.isError && (
                 <div className="flex items-center gap-2 rounded-2xl border border-[#ef5362]/20 bg-[#ffebeb] px-4 py-3 text-xs font-semibold text-[#ef5362] dark:bg-[#3c151a] dark:text-[#ff7a87]">
                     <AlertCircle size={16} />
