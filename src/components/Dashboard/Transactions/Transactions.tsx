@@ -143,7 +143,7 @@ const Transactions = () => {
                 {statTiles.map((stat) => (
                     <div
                         key={stat.label}
-                        className="rounded-[24px] border border-black/[0.05] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214]"
+                        className="rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.08] dark:bg-[#121214]"
                     >
                         <div className="mb-4 flex items-center gap-3.5">
                             <div
@@ -183,7 +183,76 @@ const Transactions = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/*
+                  A six-column ledger cannot be read on a phone, and side-
+                  scrolling a table is the clearest sign a page was designed for
+                  a desktop. Below `lg` the same rows render as a tappable list
+                  where merchant and amount lead and the rest sits underneath.
+                */}
+                <div className="divide-y divide-black/[0.04] lg:hidden dark:divide-white/[0.05]">
+                    {isLoading ? (
+                        <p className="px-5 py-10 text-center text-sm text-[#777984]">Loading payments…</p>
+                    ) : isError ? (
+                        <p className="px-5 py-10 text-center text-sm text-[#ef5362]">
+                            We could not load your transactions. Try refreshing.
+                        </p>
+                    ) : filteredTransactions.length === 0 ? (
+                        <p className="px-5 py-10 text-center text-sm text-[#777984]">
+                            {transactions.length === 0
+                                ? 'No transactions yet. Fund your wallet to get started.'
+                                : 'No payments match this filter.'}
+                        </p>
+                    ) : (
+                        filteredTransactions.map((tx) => (
+                            <div key={tx.id} className="flex items-center gap-3 px-4 py-3.5 active:bg-[#f9f9fc] dark:active:bg-white/[0.03]">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f5f5f7] text-[#6330cf] dark:bg-white/5 dark:text-[#c4a8ff]">
+                                    {React.createElement(categoryIcons[tx.category] ?? categoryIcons.Other, {
+                                        size: 18,
+                                    })}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-bold text-[#1c1c24] dark:text-white">
+                                        {tx.merchant}
+                                    </p>
+                                    <p className="truncate text-[11px] text-[#9a9ca4]">
+                                        {new Date(tx.createdAt).toLocaleDateString(undefined, {
+                                            month: 'short',
+                                            day: 'numeric',
+                                        })}
+                                        {' · '}
+                                        {tx.category}
+                                        {tx.cardLast4 ? ` · •••• ${tx.cardLast4}` : ''}
+                                    </p>
+                                </div>
+
+                                <div className="shrink-0 text-right">
+                                    <p
+                                        className={`text-sm font-extrabold ${
+                                            tx.type === 'CREDIT' ? 'text-[#12b88f]' : 'text-[#1c1c24] dark:text-white'
+                                        }`}
+                                    >
+                                        {tx.type === 'CREDIT' ? '+ ' : '− '}
+                                        {formatMoney(tx.amount, tx.currency).replace('-', '')}
+                                    </p>
+                                    {tx.status !== 'SUCCESS' && (
+                                        <span
+                                            className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                                                tx.status === 'PENDING'
+                                                    ? 'bg-[#fef7eb] text-[#e9a72b] dark:bg-[#38270b] dark:text-[#f7b746]'
+                                                    : 'bg-[#ffebeb] text-[#ef5362] dark:bg-[#3c151a] dark:text-[#ff7a87]'
+                                            }`}
+                                        >
+                                            {tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                <div className="hidden overflow-x-auto lg:block">
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-black/[0.04] bg-[#fafafc] text-[9px] font-bold uppercase tracking-wider text-[#9a9ca4] dark:border-white/[0.06] dark:bg-white/[0.02]">

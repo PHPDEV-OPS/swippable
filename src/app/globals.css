@@ -551,3 +551,86 @@ html {
 }
 
 
+
+/* ============================================================================
+   Mobile app shell
+   ----------------------------------------------------------------------------
+   Swippable is meant to be installed to a phone home screen and used like a
+   native app, so the page has to behave like an app surface rather than a
+   document: no rubber-band bounce past the edges, no grey tap flashes, no
+   Safari text inflation in landscape, and content that clears the notch and
+   the home indicator.
+   ========================================================================== */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  /* Keeps a pull-down inside the page instead of bouncing the whole shell. */
+  overscroll-behavior-y: none;
+}
+
+/* An installed app should not let a long-press select chrome like the tab bar,
+   which is what gives a web app away as a web page. Text content stays
+   selectable. */
+@media (display-mode: standalone) {
+  body {
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable],
+  p,
+  span,
+  h1,
+  h2,
+  h3,
+  h4,
+  td,
+  th {
+    user-select: text;
+  }
+}
+
+@layer utilities {
+  /*
+    Safe-area padding is written inline as `p*-[calc(... + env(...))]` at each
+    call site rather than as a `.pt-safe` utility: a second utility setting the
+    same padding property would only fight the first one in the cascade, and
+    which of the two wins is not something the markup can express. Written as
+    Tailwind utilities instead, a `md:pb-*` override sorts after the base one
+    the way every other responsive utility does.
+  */
+
+  /* Momentum scrolling inside sheets and panels. */
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Inputs below 16px make iOS Safari zoom the viewport on focus, which then
+   never zooms back out - the single most app-breaking detail on mobile. The
+   design uses 11-13px type in dense forms, so the size is restored from 640px
+   up where no phone keyboard is involved. */
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

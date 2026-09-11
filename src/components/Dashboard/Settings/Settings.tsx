@@ -70,17 +70,23 @@ export function Settings() {
 
             <div className='flex flex-col lg:flex-row gap-8'>
                 {/* Sidebar Navigation */}
-                <div className='lg:w-64 flex-shrink-0'>
-                    <div className='bg-white dark:bg-[#121214] border border-black/[0.05] dark:border-white/[0.08] rounded-[24px] p-3 space-y-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.02)]'>
+                {/*
+                  Five stacked full-width buttons pushed the actual settings a
+                  screen and a half down on a phone. Below `lg` the same tabs
+                  become a swipeable chip row, the way a native settings screen
+                  segments itself.
+                */}
+                <div className='-mx-4 flex-shrink-0 px-4 sm:mx-0 sm:px-0 lg:w-64'>
+                    <div className='scrollbar-none flex gap-1.5 overflow-x-auto rounded-[24px] border border-black/[0.05] bg-white p-3 shadow-[0_4px_24px_rgba(0,0,0,0.02)] lg:flex-col lg:gap-1.5 lg:overflow-visible dark:border-white/[0.08] dark:bg-[#121214]'>
                         {tabs.map((tab) => (
                             <button
                                 key={tab.name}
                                 type='button'
                                 onClick={() => setActiveTab(tab.name)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-xs ${
+                                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all lg:w-full lg:gap-3 lg:px-4 lg:py-3 ${
                                     activeTab === tab.name
-                                        ? 'bg-[#19191b] text-white dark:bg-white dark:text-black shadow-sm'
-                                        : 'text-[#777984] hover:text-[#1c1c24] dark:text-[#888a93] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+                                        ? 'bg-[#19191b] text-white shadow-sm dark:bg-white dark:text-black'
+                                        : 'text-[#777984] hover:bg-black/5 hover:text-[#1c1c24] dark:text-[#888a93] dark:hover:bg-white/5 dark:hover:text-white'
                                 }`}
                             >
                                 <Icon icon={tab.icon} width='18' height='18' />
@@ -97,7 +103,7 @@ export function Settings() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
-                        className='bg-white dark:bg-[#121214] border border-black/[0.05] dark:border-white/[0.08] rounded-[28px] p-6 sm:p-8 space-y-8 shadow-[0_4px_24px_rgba(0,0,0,0.02)]'
+                        className='bg-white dark:bg-[#121214] border border-black/[0.05] dark:border-white/[0.08] rounded-[28px] p-4 sm:p-8 space-y-8 shadow-[0_4px_24px_rgba(0,0,0,0.02)]'
                     >
                         {activeTab === 'Profile' && (
                             <>

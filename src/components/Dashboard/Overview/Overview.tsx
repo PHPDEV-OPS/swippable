@@ -37,6 +37,7 @@ import {
 import { cn } from '@/lib/utils'
 import { formatMoney } from '@/lib/money'
 import { ApiRequestError, useDashboardSummary, useIssueCard, useMe } from '@/lib/client-api'
+import { useIsDesktop } from '@/lib/use-media-query'
 import { CardStack } from '@/components/Dashboard/Cards/CardStack'
 import { CARD_ASPECT_RATIO } from '@/components/Dashboard/Cards/SwippableCard'
 import type { LedgerTransaction, StatDelta, VirtualCard } from '@/types/api'
@@ -130,6 +131,7 @@ function StatCardShell({
 export function Overview() {
     const { user } = useUser()
     const { theme } = useTheme()
+    const isDesktop = useIsDesktop()
     const [mounted, setMounted] = useState(false)
 
     const [activePeriod, setActivePeriod] = useState<Period>('Month')
@@ -315,7 +317,7 @@ export function Overview() {
                     transition={{ duration: 0.35 }}
                     className="flex flex-col lg:col-span-4 xl:col-span-4"
                 >
-                    <div className="group relative flex flex-1 flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_12px_36px_rgba(112,66,244,0.06)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none">
+                    <div className="group relative flex flex-1 flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 transition-all duration-300 hover:shadow-[0_12px_36px_rgba(112,66,244,0.06)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none">
                         <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
@@ -442,7 +444,7 @@ export function Overview() {
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.35, delay: 0.2 }}
-                            className="flex flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none md:col-span-7"
+                            className="flex flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none md:col-span-7"
                         >
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -540,7 +542,7 @@ export function Overview() {
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.35, delay: 0.25 }}
-                            className="flex flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none md:col-span-5"
+                            className="flex flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none md:col-span-5"
                         >
                             <div className="mb-3 flex items-center justify-between">
                                 <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
@@ -584,7 +586,7 @@ export function Overview() {
                     transition={{ duration: 0.35, delay: 0.3 }}
                     className="flex flex-col gap-6 lg:col-span-4 xl:col-span-4"
                 >
-                    <div className="flex flex-1 flex-col rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none">
+                    <div className="flex flex-1 flex-col rounded-[28px] border border-black/[0.04] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none">
                         <div className="mb-4 flex items-center justify-between">
                             <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
                                 Card Allocations
@@ -662,7 +664,7 @@ export function Overview() {
                     transition={{ duration: 0.35, delay: 0.35 }}
                     className="flex flex-col lg:col-span-4 xl:col-span-3"
                 >
-                    <div className="flex flex-1 flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none">
+                    <div className="flex flex-1 flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none">
                         <div>
                             <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
                                 Wallet Allocation
@@ -750,7 +752,7 @@ export function Overview() {
                     transition={{ duration: 0.35, delay: 0.4 }}
                     className="flex flex-col lg:col-span-4 xl:col-span-5"
                 >
-                    <div className="flex flex-1 flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none">
+                    <div className="flex flex-1 flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none">
                         <div className="mb-4 flex items-center justify-between">
                             <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
                                 Latest Movements
@@ -793,9 +795,14 @@ export function Overview() {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-x-auto">
-                            <div className="min-w-[370px]">
-                                <div className="grid select-none grid-cols-5 gap-2 rounded-xl bg-[#f9f9fb] px-3 py-2 text-[9px] font-extrabold text-[#9a9ca4] dark:bg-white/[0.03]">
+                        {/*
+                          The column header only earns its space once there are
+                          real columns; below `sm` the ledger is a list, so the
+                          sort control moves inline instead.
+                        */}
+                        <div className="flex-1">
+                            <div>
+                                <div className="hidden select-none grid-cols-5 gap-2 rounded-xl bg-[#f9f9fb] px-3 py-2 text-[9px] font-extrabold text-[#9a9ca4] sm:grid dark:bg-white/[0.03]">
                                     <span className="col-span-2">Merchant</span>
                                     <span>Date</span>
                                     <span
@@ -808,6 +815,15 @@ export function Overview() {
                                     <span className="text-right">Status</span>
                                 </div>
 
+                                <button
+                                    type="button"
+                                    onClick={() => setSortAsc(!sortAsc)}
+                                    className="flex w-full items-center justify-end gap-1 rounded-xl bg-[#f9f9fb] px-3 py-2 text-[9px] font-extrabold text-[#9a9ca4] sm:hidden dark:bg-white/[0.03]"
+                                >
+                                    <span>Sort by amount</span>
+                                    <span className="text-[8px]">{sortAsc ? '▲' : '▼'}</span>
+                                </button>
+
                                 <div className="divide-y divide-black/[0.03] dark:divide-white/[0.04]">
                                     <AnimatePresence>
                                         {ledgerRows.map((row) => (
@@ -816,38 +832,50 @@ export function Overview() {
                                                 initial={{ opacity: 0, y: 4 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 exit={{ opacity: 0 }}
-                                                className="grid grid-cols-5 items-center gap-2 px-3 py-3 text-[11px] transition-colors hover:bg-[#fafafc] dark:hover:bg-white/[0.02]"
+                                                className="flex items-center gap-2 px-3 py-3 text-[11px] transition-colors hover:bg-[#fafafc] sm:grid sm:grid-cols-5 dark:hover:bg-white/[0.02]"
                                             >
-                                                <div className="col-span-2 min-w-0">
+                                                <div className="min-w-0 flex-1 sm:col-span-2">
                                                     <p className="truncate font-bold text-[#1c1c24] dark:text-white">
                                                         {row.merchant}
                                                     </p>
                                                     <p className="truncate text-[9px] text-[#9a9ca4]">
+                                                        <span className="sm:hidden">
+                                                            {new Date(row.createdAt).toLocaleDateString(undefined, {
+                                                                month: 'short',
+                                                                day: 'numeric',
+                                                            })}
+                                                            {' · '}
+                                                        </span>
                                                         {row.category}
                                                     </p>
                                                 </div>
 
-                                                <span className="text-[10px] text-[#81858c]">
+                                                <span className="hidden text-[10px] text-[#81858c] sm:block">
                                                     {new Date(row.createdAt).toLocaleDateString(undefined, {
                                                         month: 'short',
                                                         day: 'numeric',
                                                     })}
                                                 </span>
 
-                                                <span
-                                                    className={cn(
-                                                        'font-extrabold',
-                                                        row.type === 'CREDIT'
-                                                            ? 'text-[#12b88f]'
-                                                            : 'text-[#1c1c24] dark:text-white'
-                                                    )}
-                                                >
-                                                    {row.type === 'CREDIT' ? '+' : '−'}
-                                                    {formatMoney(row.amount, row.currency).replace('-', '')}
-                                                </span>
+                                                {/* `sm:contents` dissolves this wrapper into the grid,
+                                                    so amount and status are stacked on a phone and
+                                                    become their own columns from `sm` up. */}
+                                                <div className="flex shrink-0 flex-col items-end gap-1 sm:contents">
+                                                    <span
+                                                        className={cn(
+                                                            'font-extrabold',
+                                                            row.type === 'CREDIT'
+                                                                ? 'text-[#12b88f]'
+                                                                : 'text-[#1c1c24] dark:text-white'
+                                                        )}
+                                                    >
+                                                        {row.type === 'CREDIT' ? '+' : '−'}
+                                                        {formatMoney(row.amount, row.currency).replace('-', '')}
+                                                    </span>
 
-                                                <div className="text-right">
-                                                    <StatusPill status={row.status} />
+                                                    <div className="text-right">
+                                                        <StatusPill status={row.status} />
+                                                    </div>
                                                 </div>
                                             </motion.div>
                                         ))}
@@ -878,7 +906,7 @@ export function Overview() {
             {/* ===================== Issue card modal ===================== */}
             <AnimatePresence>
                 {isAddCardOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -886,13 +914,15 @@ export function Overview() {
                             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
                             onClick={() => setIsAddCardOpen(false)}
                         />
+                        {/* Sheet on a phone, centred dialog from `sm` up. */}
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.94, y: 15 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.94, y: 15 }}
-                            transition={{ type: 'spring', duration: 0.3 }}
-                            className="relative z-10 w-full max-w-md rounded-[28px] border border-black/[0.08] bg-white p-6 text-[#1c1c24] shadow-2xl dark:border-white/[0.1] dark:bg-[#121214] dark:text-white"
+                            initial={isDesktop ? { opacity: 0, scale: 0.94, y: 15 } : { y: '100%' }}
+                            animate={isDesktop ? { opacity: 1, scale: 1, y: 0 } : { y: 0 }}
+                            exit={isDesktop ? { opacity: 0, scale: 0.94, y: 15 } : { y: '100%' }}
+                            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+                            className="scroll-touch relative z-10 max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] border border-black/[0.08] bg-white px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pt-5 text-[#1c1c24] shadow-2xl sm:max-h-[86dvh] sm:max-w-md sm:rounded-[28px] sm:p-6 dark:border-white/[0.1] dark:bg-[#121214] dark:text-white"
                         >
+                            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/15 sm:hidden dark:bg-white/20" />
                             <div className="flex items-center justify-between border-b border-black/[0.06] pb-4 dark:border-white/[0.08]">
                                 <div>
                                     <h3 className="text-base font-bold">Issue Virtual Card</h3>

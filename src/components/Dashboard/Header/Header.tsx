@@ -19,18 +19,24 @@ import {
     Sparkles,
     BarChart3,
     Settings,
-    Menu,
     X,
-    Check
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDismissNotifications, useMarkNotificationsRead, useNotifications } from '@/lib/client-api'
 
+/**
+ * Two shapes, one component.
+ *
+ * From `md` up this is the floating three-island header the desktop dashboard
+ * was designed around. Below `md` the islands merge into a single title bar
+ * pinned under the status bar, and navigation moves to `MobileTabBar` - a
+ * phone should not hide its whole product behind a hamburger, and an installed
+ * app has no browser chrome to fall back on.
+ */
 export function DashboardHeader() {
     const pathname = usePathname()
     const { theme, setTheme } = useTheme()
     const [mounted, setMounted] = useState(false)
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
     const [showNotifications, setShowNotifications] = useState(false)
 
     const notifications = useNotifications()
@@ -53,34 +59,46 @@ export function DashboardHeader() {
         { name: 'Home', href: '/dashboard', icon: Home, exact: true },
         { name: 'Wallet', href: '/dashboard/wallet', icon: Wallet, exact: false },
         { name: 'Cards', href: '/dashboard/cards', icon: CreditCard, exact: false },
-        { name: 'Payment', href: '/dashboard/transactions', icon: Banknote, exact: false },
+        { name: 'Payments', href: '/dashboard/transactions', icon: Banknote, exact: false },
         { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, exact: false },
-        { name: 'Setting', href: '/dashboard/settings', icon: Settings, exact: false },
+        { name: 'Settings', href: '/dashboard/settings', icon: Settings, exact: false },
     ]
-
 
     const isActive = (href: string, exact: boolean) => {
         if (exact) return pathname === href
         return pathname?.startsWith(href) ?? false
     }
 
-    return (
-        <header className="fixed top-3 sm:top-5 inset-x-0 z-40 mx-auto max-w-[1440px] px-3 sm:px-6 lg:px-8 pointer-events-none transition-all duration-300">
-            <div className="flex items-center justify-between gap-2 sm:gap-3 w-full">
+    /** Circular control: bare on the mobile bar, its own floating island on desktop. */
+    const controlClass =
+        'flex h-10 w-10 items-center justify-center rounded-full text-[#777984] transition-all active:scale-95 dark:text-[#8c8e98] ' +
+        'lg:h-12 lg:w-12 lg:border lg:border-black/[0.04] lg:bg-white/90 lg:shadow-[0_4px_24px_rgba(0,0,0,0.06)] lg:backdrop-blur-xl lg:hover:scale-105 lg:dark:border-white/[0.08] lg:dark:bg-[#121214]/90'
 
-                {/* Left Floating Island: Swippable Logo Pill */}
+    return (
+        // The top pad is a single calc rather than a safe-area utility next to
+        // `pt-2`: two utilities setting padding-top would only fight over the
+        // cascade.
+        <header className="fixed inset-x-0 top-0 z-40 mx-auto max-w-[1440px] px-3 pt-[calc(0.5rem+env(safe-area-inset-top,0px))] transition-all duration-300 sm:px-6 lg:top-5 lg:pt-0 lg:px-8">
+            {/* Below md the row itself is the island; from md up it is a bare
+                flex track and each child floats on its own. */}
+            <div className="flex items-center justify-between gap-2 rounded-[22px] border border-black/[0.05] bg-white/92 px-2 py-1.5 shadow-[0_6px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-[#121214]/92 lg:gap-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none lg:dark:bg-transparent">
+
+                {/* Wordmark */}
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="pointer-events-auto"
+                    className="min-w-0"
                 >
                     <Link
                         href="/dashboard"
-                        className="group flex h-11 sm:h-12 items-center gap-2.5 rounded-full bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl px-4 shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-black/[0.04] dark:border-white/[0.08] transition-all hover:scale-102 hover:shadow-[0_6px_28px_rgba(112,66,244,0.18)] active:scale-98"
+                        className={cn(
+                            'group flex h-10 items-center gap-2.5 rounded-full px-2 transition-all active:scale-98',
+                            'lg:h-12 lg:border lg:border-black/[0.04] lg:bg-white/90 lg:px-4 lg:shadow-[0_4px_24px_rgba(0,0,0,0.06)] lg:backdrop-blur-xl lg:hover:scale-102 lg:hover:shadow-[0_6px_28px_rgba(112,66,244,0.18)] lg:dark:border-white/[0.08] lg:dark:bg-[#121214]/90'
+                        )}
                         aria-label="Swippable dashboard home"
                     >
-                        <div className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-[#6330cf] via-[#7c48ea] to-[#925FFF] shadow-sm">
+                        <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-[#6330cf] via-[#7c48ea] to-[#925FFF] shadow-sm">
                             <Image
                                 src="/images/logo/logo-mark.svg"
                                 alt="Swippable"
@@ -89,20 +107,20 @@ export function DashboardHeader() {
                                 className="h-5 w-5 object-contain brightness-0 invert"
                             />
                         </div>
-                        <span className="text-sm sm:text-[15px] font-extrabold tracking-tight bg-gradient-to-r from-[#6330cf] via-[#8553ec] to-[#19c9a2] bg-clip-text text-transparent">
+                        <span className="truncate bg-gradient-to-r from-[#6330cf] via-[#8553ec] to-[#19c9a2] bg-clip-text text-sm font-extrabold tracking-tight text-transparent lg:text-[15px]">
                             Swippable
                         </span>
                     </Link>
                 </motion.div>
 
-                {/* Center Floating Island: Navigation Capsule */}
+                {/* Desktop navigation capsule */}
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: 0.05 }}
-                    className="pointer-events-auto hidden md:flex flex-1 justify-center max-w-2xl"
+                    className="hidden max-w-2xl flex-1 justify-center lg:flex"
                 >
-                    <nav className="flex items-center gap-1 rounded-full bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl p-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-black/[0.04] dark:border-white/[0.08]">
+                    <nav className="flex items-center gap-1 rounded-full border border-black/[0.04] bg-white/90 p-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.06)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#121214]/90">
                         {navItems.map((item) => {
                             const active = isActive(item.href, item.exact)
                             const Icon = item.icon
@@ -123,29 +141,27 @@ export function DashboardHeader() {
                             )
                         })}
 
-                        {/* Agent Assistant Button inside the floating nav */}
                         <button
                             type="button"
                             onClick={openAiAssistant}
-                            className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold text-[#6330cf] hover:bg-[#f0eaff] transition-colors dark:text-[#c4a8ff] dark:hover:bg-[#281b45] cursor-pointer"
+                            className="flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold text-[#6330cf] transition-colors hover:bg-[#f0eaff] dark:text-[#c4a8ff] dark:hover:bg-[#281b45]"
                             title="Open Financial Copilot"
                         >
-                            <Sparkles size={13} className="text-[#8553ec] animate-pulse" />
+                            <Sparkles size={13} className="text-[#8553ec]" />
                             <span>Assistant</span>
                         </button>
                     </nav>
                 </motion.div>
 
-                {/* Right Floating Cluster: Search, Theme Toggle, Bell, Clerk Account */}
+                {/* Controls */}
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: 0.1 }}
-                    className="pointer-events-auto flex items-center gap-2 sm:gap-2.5"
+                    className="flex shrink-0 items-center gap-0.5 lg:gap-2.5"
                 >
-                    {/* Floating Search Pill */}
-                    <div className="relative hidden xl:flex h-11 sm:h-12 items-center rounded-full bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl px-4 shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-black/[0.04] dark:border-white/[0.08]">
-                        <Search className="text-[#9a9ca4] mr-2 shrink-0" size={14} />
+                    <div className="relative hidden h-12 items-center rounded-full border border-black/[0.04] bg-white/90 px-4 shadow-[0_4px_24px_rgba(0,0,0,0.06)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#121214]/90 xl:flex">
+                        <Search className="mr-2 shrink-0 text-[#9a9ca4]" size={14} />
                         <input
                             type="text"
                             aria-label="Search dashboard"
@@ -154,129 +170,135 @@ export function DashboardHeader() {
                         />
                     </div>
 
-                    {/* Floating Theme Toggle Circle */}
                     <button
                         type="button"
                         aria-label="Toggle theme"
                         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                        className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl text-[#777984] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-black/[0.04] dark:border-white/[0.08] transition-all hover:scale-105 active:scale-95 hover:text-[#6330cf] dark:text-[#8c8e98] dark:hover:text-white cursor-pointer"
+                        className={cn(controlClass, 'cursor-pointer hover:text-[#6330cf] dark:hover:text-white')}
                     >
                         {mounted && theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
                     </button>
 
-                    {/* Floating Notifications Circle with Dropdown */}
                     <div className="relative">
                         <button
                             type="button"
                             aria-label="Notifications"
                             onClick={() => setShowNotifications((open) => !open)}
-                            className="relative flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl text-[#777984] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-black/[0.04] dark:border-white/[0.08] transition-all hover:scale-105 active:scale-95 hover:text-[#1c1c24] dark:text-[#8c8e98] dark:hover:text-white cursor-pointer"
+                            className={cn(controlClass, 'cursor-pointer hover:text-[#1c1c24] dark:hover:text-white')}
                         >
                             <Bell size={17} />
                             {unreadCount > 0 && (
-                                <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ef5362] px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-[#121214]">
+                                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ef5362] px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-[#121214] lg:right-2 lg:top-2">
                                     {unreadCount > 9 ? '9+' : unreadCount}
                                 </span>
                             )}
                         </button>
 
-                        {/* Notifications Dropdown Panel */}
                         <AnimatePresence>
                             {showNotifications && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="absolute right-0 mt-2 w-72 sm:w-80 rounded-2xl border border-black/[0.08] bg-white p-4 shadow-2xl backdrop-blur-xl dark:border-white/[0.1] dark:bg-[#121214]"
-                                >
-                                    <div className="flex items-center justify-between gap-2 pb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
-                                        <h4 className="text-xs font-bold text-[#1c1c24] dark:text-white">
-                                            Notifications
-                                            {unreadCount > 0 && (
-                                                <span className="ml-1.5 rounded-full bg-[#f0eaff] px-1.5 py-0.5 text-[9px] font-bold text-[#6330cf] dark:bg-[#281b45] dark:text-[#c4a8ff]">
-                                                    {unreadCount} new
-                                                </span>
-                                            )}
-                                        </h4>
+                                <>
+                                    {/* Tapping anywhere else closes the panel, the way a
+                                        native sheet dismisses. */}
+                                    <button
+                                        type="button"
+                                        aria-label="Close notifications"
+                                        onClick={() => setShowNotifications(false)}
+                                        className="fixed inset-0 z-40 cursor-default lg:hidden"
+                                    />
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        transition={{ duration: 0.15 }}
+                                        className="absolute right-0 z-50 mt-3 w-[min(20rem,calc(100vw-1.75rem))] rounded-2xl border border-black/[0.08] bg-white p-4 shadow-2xl backdrop-blur-xl dark:border-white/[0.1] dark:bg-[#121214] sm:w-80"
+                                    >
+                                        <div className="flex items-center justify-between gap-2 border-b border-black/[0.05] pb-3 dark:border-white/[0.06]">
+                                            <h4 className="text-xs font-bold text-[#1c1c24] dark:text-white">
+                                                Notifications
+                                                {unreadCount > 0 && (
+                                                    <span className="ml-1.5 rounded-full bg-[#f0eaff] px-1.5 py-0.5 text-[9px] font-bold text-[#6330cf] dark:bg-[#281b45] dark:text-[#c4a8ff]">
+                                                        {unreadCount} new
+                                                    </span>
+                                                )}
+                                            </h4>
 
-                                        <div className="flex shrink-0 items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => markRead.mutate()}
-                                                disabled={unreadCount === 0}
-                                                className="text-[10px] font-semibold text-[#6330cf] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#c4a8ff]"
-                                            >
-                                                Mark all read
-                                            </button>
-                                            <span className="text-[10px] text-[#d3d4da] dark:text-white/20">|</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => dismiss.mutate({ scope: 'all' })}
-                                                disabled={(notifications.data ?? []).length === 0}
-                                                className="text-[10px] font-semibold text-[#81858c] transition-colors hover:text-[#ef5362] disabled:cursor-not-allowed disabled:opacity-35"
-                                            >
-                                                Clear
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="mt-2 space-y-2 max-h-64 overflow-y-auto scrollbar-none">
-                                        <AnimatePresence initial={false}>
-                                            {(notifications.data ?? []).map((item) => (
-                                                <motion.div
-                                                    key={item.id}
-                                                    layout
-                                                    initial={{ opacity: 0, y: -4 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, x: 24, height: 0, marginTop: 0 }}
-                                                    transition={{ duration: 0.18 }}
-                                                    className={cn(
-                                                        'group/notif relative p-2.5 rounded-xl hover:bg-[#f5f5f7] dark:hover:bg-white/[0.04] transition-colors',
-                                                        !item.read && 'bg-[#f7f4ff] dark:bg-white/[0.05]'
-                                                    )}
+                                            <div className="flex shrink-0 items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => markRead.mutate()}
+                                                    disabled={unreadCount === 0}
+                                                    className="text-[10px] font-semibold text-[#6330cf] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-35 dark:text-[#c4a8ff]"
                                                 >
-                                                    <div className="flex justify-between items-start gap-2">
-                                                        <p className="flex items-center gap-1.5 text-xs font-bold text-[#1c1c24] dark:text-white">
-                                                            {!item.read && (
-                                                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#7042f4]" />
-                                                            )}
-                                                            {item.title}
-                                                        </p>
-                                                        <span className="shrink-0 text-[9px] text-[#81858c] group-hover/notif:opacity-0 transition-opacity">
-                                                            {relativeTime(item.createdAt)}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-[11px] text-[#777984] dark:text-[#888a93] mt-0.5">{item.body}</p>
-
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => dismiss.mutate({ id: item.id })}
-                                                        aria-label="Dismiss notification"
-                                                        className="absolute right-1.5 top-1.5 rounded-md p-1 text-[#9a9ca4] opacity-0 transition-all hover:bg-black/5 hover:text-[#ef5362] group-hover/notif:opacity-100 dark:hover:bg-white/10"
+                                                    Mark all read
+                                                </button>
+                                                <span className="text-[10px] text-[#d3d4da] dark:text-white/20">|</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => dismiss.mutate({ scope: 'all' })}
+                                                    disabled={(notifications.data ?? []).length === 0}
+                                                    className="text-[10px] font-semibold text-[#81858c] transition-colors hover:text-[#ef5362] disabled:cursor-not-allowed disabled:opacity-35"
+                                                >
+                                                    Clear
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="scrollbar-none scroll-touch mt-2 max-h-[min(16rem,50vh)] space-y-2 overflow-y-auto">
+                                            <AnimatePresence initial={false}>
+                                                {(notifications.data ?? []).map((item) => (
+                                                    <motion.div
+                                                        key={item.id}
+                                                        layout
+                                                        initial={{ opacity: 0, y: -4 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{ opacity: 0, x: 24, height: 0, marginTop: 0 }}
+                                                        transition={{ duration: 0.18 }}
+                                                        className={cn(
+                                                            'group/notif relative rounded-xl p-2.5 transition-colors hover:bg-[#f5f5f7] dark:hover:bg-white/[0.04]',
+                                                            !item.read && 'bg-[#f7f4ff] dark:bg-white/[0.05]'
+                                                        )}
                                                     >
-                                                        <X size={11} />
-                                                    </button>
-                                                </motion.div>
-                                            ))}
-                                        </AnimatePresence>
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <p className="flex min-w-0 items-center gap-1.5 text-xs font-bold text-[#1c1c24] dark:text-white">
+                                                                {!item.read && (
+                                                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#7042f4]" />
+                                                                )}
+                                                                <span className="truncate">{item.title}</span>
+                                                            </p>
+                                                            <span className="shrink-0 text-[9px] text-[#81858c] transition-opacity group-hover/notif:opacity-0">
+                                                                {relativeTime(item.createdAt)}
+                                                            </span>
+                                                        </div>
+                                                        <p className="mt-0.5 text-[11px] text-[#777984] dark:text-[#888a93]">{item.body}</p>
 
-                                        {notifications.isLoading && (
-                                            <p className="py-6 text-center text-[11px] text-[#81858c]">Loading…</p>
-                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => dismiss.mutate({ id: item.id })}
+                                                            aria-label="Dismiss notification"
+                                                            className="absolute right-1.5 top-1.5 rounded-md p-1 text-[#9a9ca4] opacity-0 transition-all hover:bg-black/5 hover:text-[#ef5362] group-hover/notif:opacity-100 dark:hover:bg-white/10"
+                                                        >
+                                                            <X size={11} />
+                                                        </button>
+                                                    </motion.div>
+                                                ))}
+                                            </AnimatePresence>
 
-                                        {!notifications.isLoading && (notifications.data ?? []).length === 0 && (
-                                            <p className="py-6 text-center text-[11px] text-[#81858c]">
-                                                Nothing yet. Card and deposit activity shows up here.
-                                            </p>
-                                        )}
-                                    </div>
-                                </motion.div>
+                                            {notifications.isLoading && (
+                                                <p className="py-6 text-center text-[11px] text-[#81858c]">Loading…</p>
+                                            )}
+
+                                            {!notifications.isLoading && (notifications.data ?? []).length === 0 && (
+                                                <p className="py-6 text-center text-[11px] text-[#81858c]">
+                                                    Nothing yet. Card and deposit activity shows up here.
+                                                </p>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                </>
                             )}
                         </AnimatePresence>
                     </div>
 
-                    {/* Floating Clerk UserButton Capsule */}
-                    <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-black/[0.04] dark:border-white/[0.08]">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full lg:h-12 lg:w-12 lg:border lg:border-black/[0.04] lg:bg-white/90 lg:shadow-[0_4px_24px_rgba(0,0,0,0.06)] lg:backdrop-blur-xl lg:dark:border-white/[0.08] lg:dark:bg-[#121214]/90">
                         <UserButton
                             appearance={{
                                 elements: {
@@ -284,67 +306,20 @@ export function DashboardHeader() {
                                     userButtonTrigger: 'focus:outline-none focus:ring-2 focus:ring-[#8553ec]'
                                 }
                             }}
-                        />
+                        >
+                            {/* Settings is not a dock tab, so the account menu is where
+                                it lives on a phone. */}
+                            <UserButton.MenuItems>
+                                <UserButton.Link
+                                    label="Swippable settings"
+                                    labelIcon={<Settings size={15} />}
+                                    href="/dashboard/settings"
+                                />
+                            </UserButton.MenuItems>
+                        </UserButton>
                     </div>
-
-                    {/* Mobile Hamburger Toggle Circle */}
-                    <button
-                        type="button"
-                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl text-[#777984] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-black/[0.04] dark:border-white/[0.08] md:hidden cursor-pointer dark:text-white"
-                        aria-label="Toggle navigation menu"
-                    >
-                        {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-                    </button>
                 </motion.div>
             </div>
-
-            {/* Mobile Navigation Dropdown Drawer */}
-            <AnimatePresence>
-                {mobileMenuOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                        className="pointer-events-auto mt-3 rounded-3xl border border-black/[0.08] bg-white/95 p-4 shadow-2xl backdrop-blur-2xl md:hidden dark:border-white/[0.1] dark:bg-[#121214]/95"
-                    >
-                        <nav className="flex flex-col gap-1.5">
-                            {navItems.map((item) => {
-                                const active = isActive(item.href, item.exact)
-                                const Icon = item.icon
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        className={cn(
-                                            'flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-colors',
-                                            active
-                                                ? 'bg-[#19191b] text-white dark:bg-white dark:text-black shadow-sm'
-                                                : 'text-[#777984] hover:bg-black/5 dark:text-[#888a93] dark:hover:bg-white/5'
-                                        )}
-                                    >
-                                        <Icon size={18} />
-                                        <span>{item.name}</span>
-                                    </Link>
-                                )
-                            })}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setMobileMenuOpen(false)
-                                    openAiAssistant()
-                                }}
-                                className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-[#6330cf] bg-[#f0eaff] dark:bg-[#281b45] dark:text-[#c4a8ff]"
-                            >
-                                <Sparkles size={18} />
-                                <span>Assistant</span>
-                            </button>
-                        </nav>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </header>
     )
 }

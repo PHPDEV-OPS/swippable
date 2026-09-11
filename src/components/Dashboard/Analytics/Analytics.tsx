@@ -125,7 +125,7 @@ export function Analytics() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35 }}
-                className="rounded-[28px] border border-black/[0.05] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214] sm:p-8"
+                className="rounded-[28px] border border-black/[0.05] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.08] dark:bg-[#121214] sm:p-8"
             >
                 <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
@@ -212,7 +212,7 @@ export function Analytics() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: 0.1 }}
-                    className="rounded-[28px] border border-black/[0.05] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214] sm:p-8"
+                    className="rounded-[28px] border border-black/[0.05] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.08] dark:bg-[#121214] sm:p-8"
                 >
                     <h2 className="mb-6 text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
                         Spending Categories
@@ -284,7 +284,7 @@ export function Analytics() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: 0.15 }}
-                    className="rounded-[28px] border border-black/[0.05] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.08] dark:bg-[#121214] sm:p-8"
+                    className="rounded-[28px] border border-black/[0.05] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.08] dark:bg-[#121214] sm:p-8"
                 >
                     <h2 className="mb-1 text-lg font-bold tracking-tight text-[#1c1c24] dark:text-white">
                         Weekly Velocity

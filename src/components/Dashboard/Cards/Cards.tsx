@@ -28,6 +28,7 @@ import {
     useWallet,
 } from '@/lib/client-api'
 import type { VirtualCard } from '@/types/api'
+import { useIsDesktop } from '@/lib/use-media-query'
 import { SwippableCard } from './SwippableCard'
 import { useRevealCard, type RevealedCard } from '@/lib/client-api'
 
@@ -194,7 +195,7 @@ const Cards = () => {
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-6 py-3 font-bold text-white shadow-lg shadow-purple-500/20 transition-all hover:opacity-95 active:scale-95"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-6 py-3.5 font-bold text-white shadow-lg shadow-purple-500/20 transition-all hover:opacity-95 active:scale-95 md:w-auto md:py-3"
                 >
                     <PlusCircle size={20} />
                     Create Virtual Card
@@ -599,9 +600,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     )
 }
 
+/**
+ * A dialog on desktop, a bottom sheet on a phone.
+ *
+ * The card forms are taller than a 667px screen, so the sheet has to cap its
+ * own height and scroll inside - a centred box just ran its buttons off the
+ * bottom of the viewport with no way to reach them.
+ */
 function ModalShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+    const isDesktop = useIsDesktop()
+
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onClose()
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [onClose])
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-6">
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -610,11 +628,15 @@ function ModalShell({ children, onClose }: { children: React.ReactNode; onClose:
                 className="absolute inset-0 bg-black/60 backdrop-blur-md"
             />
             <motion.div
-                initial={{ opacity: 0, scale: 0.94, y: 16 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.94, y: 16 }}
-                className="relative z-10 w-full max-w-xl rounded-[2.5rem] border border-black/10 bg-white p-6 text-[#1c1c24] shadow-2xl dark:border-white/10 dark:bg-[#121214] dark:text-white sm:p-8"
+                role="dialog"
+                aria-modal="true"
+                initial={isDesktop ? { opacity: 0, scale: 0.94, y: 16 } : { y: '100%' }}
+                animate={isDesktop ? { opacity: 1, scale: 1, y: 0 } : { y: 0 }}
+                exit={isDesktop ? { opacity: 0, scale: 0.94, y: 16 } : { y: '100%' }}
+                transition={isDesktop ? undefined : { type: 'spring', stiffness: 380, damping: 38 }}
+                className="scroll-touch relative z-10 max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] border border-black/10 bg-white px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pt-5 text-[#1c1c24] shadow-2xl sm:max-h-[86dvh] sm:max-w-xl sm:rounded-[2.5rem] sm:p-8 dark:border-white/10 dark:bg-[#121214] dark:text-white"
             >
+                <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/15 sm:hidden dark:bg-white/20" />
                 {children}
             </motion.div>
         </div>

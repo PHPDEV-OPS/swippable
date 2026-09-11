@@ -118,7 +118,7 @@ export function Checkout() {
     const canPay = cardNumberValue.replace(/\D/g, '').length >= 4 && Number(amount) > 0 && !pay.isPending
 
     return (
-        <div className="min-h-screen bg-[#f4f4f6] px-4 py-8 sm:px-6 sm:py-12">
+        <div className="min-h-[100dvh] bg-[#f4f4f6] px-4 py-8 sm:px-6 sm:py-12">
             <div className="mx-auto w-full max-w-[1080px]">
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                     <Link

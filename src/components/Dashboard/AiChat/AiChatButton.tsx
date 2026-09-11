@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useDragControls, type PanInfo } from 'framer-motion'
 import { MessageSquare, Sparkles, X, Send, Bot, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatMoney } from '@/lib/money'
+import { useIsDesktop } from '@/lib/use-media-query'
 import { useCards, useDashboardSummary, useTransactions, useWallet } from '@/lib/client-api'
 import type { LedgerTransaction, VirtualCard } from '@/types/api'
 
@@ -15,11 +16,22 @@ interface Message {
     timestamp: string
 }
 
+/**
+ * The assistant takes two forms.
+ *
+ * On a phone it is a bottom sheet: it springs up from the bottom edge, sits
+ * above a dimmed page, and is dismissed by dragging its handle down or flicking
+ * it - the gesture people already use for every native sheet. On desktop it
+ * stays the anchored panel hanging off the floating action button.
+ */
 export function AiChatButton() {
     const [isOpen, setIsOpen] = useState(false)
     const [inputText, setInputText] = useState('')
     const [isTyping, setIsTyping] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
+    const dragControls = useDragControls()
+    const isDesktop = useIsDesktop()
 
     // The assistant only ever quotes figures that came out of the database.
     const wallet = useWallet('7D')
@@ -48,11 +60,37 @@ export function AiChatButton() {
         }
     }, [messages, isOpen])
 
+    // Escape closes, as it does for every other dialog in the dashboard.
+    useEffect(() => {
+        if (!isOpen) return
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setIsOpen(false)
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [isOpen])
+
+    // While the sheet covers the phone, the page behind it must not scroll.
+    useEffect(() => {
+        if (!isOpen || isDesktop) return
+        const previous = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        return () => {
+            document.body.style.overflow = previous
+        }
+    }, [isOpen, isDesktop])
+
+    // Focusing the field on a phone throws the keyboard up over the answer the
+    // person just opened the sheet to read, so that is desktop-only.
+    useEffect(() => {
+        if (isOpen && isDesktop) inputRef.current?.focus()
+    }, [isOpen, isDesktop])
+
     const quickPrompts = [
         'Check card balance',
         'Recent payments',
         'Create virtual card',
-        'Spending limit status'
+        'Spending limit status',
     ]
 
     const handleSendMessage = (textToSend?: string) => {
@@ -95,150 +133,210 @@ export function AiChatButton() {
         }, 500)
     }
 
+    /** A downward flick, or a drag past a third of the sheet, dismisses it. */
+    const handleDragEnd = (_event: unknown, info: PanInfo) => {
+        if (info.offset.y > 130 || info.velocity.y > 650) setIsOpen(false)
+    }
+
+    const panel = (
+        <>
+            {/* Grab handle. Only the header starts a drag, so scrolling the
+                conversation never pulls the sheet down with it. */}
+            <div
+                onPointerDown={(event) => {
+                    if (!isDesktop) dragControls.start(event)
+                }}
+                className="shrink-0 touch-none bg-gradient-to-r from-[#6330cf] to-[#8553ec] pt-2 lg:pt-0"
+            >
+                <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-white/40 lg:hidden" />
+                <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5 text-white lg:py-4">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 backdrop-blur-md">
+                            <Bot size={18} className="text-white" />
+                        </div>
+                        <div className="min-w-0">
+                            <h3 className="truncate text-sm font-bold tracking-tight">Swippable Assistant</h3>
+                            <p className="text-[10px] font-medium text-white/80">AI Financial Copilot</p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsOpen(false)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 active:scale-95"
+                        aria-label="Close Assistant"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Conversation. `min-h-0` is what lets this pane scroll instead of
+                pushing the composer off the bottom of the sheet. */}
+            <div className="scrollbar-none scroll-touch min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#fafafc] p-4 dark:bg-[#0d0d0f]">
+                {messages.map((msg) => (
+                    <div
+                        key={msg.id}
+                        className={cn(
+                            'flex gap-2 text-[13px] lg:text-xs',
+                            msg.type === 'user' ? 'justify-end' : 'justify-start'
+                        )}
+                    >
+                        {msg.type === 'bot' && (
+                            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#f0eaff] text-[#6330cf] dark:bg-[#281b45] dark:text-[#c4a8ff]">
+                                <Sparkles size={12} />
+                            </div>
+                        )}
+                        <div
+                            className={cn(
+                                'max-w-[82%] rounded-2xl px-3.5 py-2.5 leading-relaxed shadow-sm',
+                                msg.type === 'user'
+                                    ? 'rounded-tr-none bg-[#6330cf] text-white'
+                                    : 'rounded-tl-none border border-black/[0.04] bg-white text-[#1c1c24] dark:border-white/[0.06] dark:bg-[#1a1a1d] dark:text-[#f0f0f4]'
+                            )}
+                        >
+                            <p className="break-words">{msg.text}</p>
+                            <span className="mt-1 block text-right text-[9px] opacity-60">{msg.timestamp}</span>
+                        </div>
+                        {msg.type === 'user' && (
+                            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#19191b] text-white dark:bg-white dark:text-black">
+                                <User size={12} />
+                            </div>
+                        )}
+                    </div>
+                ))}
+
+                {isTyping && (
+                    <div className="flex items-center gap-2 text-xs text-[#777984]">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#f0eaff] text-[#6330cf] dark:bg-[#281b45]">
+                            <Sparkles size={12} />
+                        </div>
+                        <div className="flex gap-1 rounded-full border border-black/[0.05] bg-white px-3 py-2 dark:border-white/[0.06] dark:bg-[#1a1a1d]">
+                            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#8553ec]" style={{ animationDelay: '0ms' }} />
+                            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#8553ec]" style={{ animationDelay: '150ms' }} />
+                            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#8553ec]" style={{ animationDelay: '300ms' }} />
+                        </div>
+                    </div>
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+
+            <div className="scrollbar-none shrink-0 overflow-x-auto border-t border-black/[0.04] bg-white px-3 py-2 dark:border-white/[0.05] dark:bg-[#121214]">
+                <div className="flex gap-1.5">
+                    {quickPrompts.map((prompt) => (
+                        <button
+                            key={prompt}
+                            type="button"
+                            onClick={() => handleSendMessage(prompt)}
+                            className="shrink-0 rounded-full bg-[#f5f5f7] px-3 py-1.5 text-[11px] font-medium text-[#555660] transition-colors hover:bg-[#edeef2] active:scale-95 dark:bg-white/[0.06] dark:text-[#a0a2af] dark:hover:bg-white/[0.1] lg:px-2.5 lg:py-1 lg:text-[10px]"
+                        >
+                            {prompt}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault()
+                    handleSendMessage()
+                }}
+                className="flex shrink-0 items-center gap-2 border-t border-black/[0.05] bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] dark:border-white/[0.06] dark:bg-[#121214] lg:pb-3"
+            >
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputText}
+                    onChange={(event) => setInputText(event.target.value)}
+                    placeholder="Ask Swippable AI..."
+                    className="min-w-0 flex-1 rounded-full bg-[#f5f5f7] px-4 py-2.5 outline-none focus:ring-1 focus:ring-[#8553ec] dark:bg-[#1c1c20] dark:text-white dark:placeholder:text-[#6a6c76] lg:py-2 lg:text-xs"
+                />
+                <button
+                    type="submit"
+                    disabled={!inputText.trim()}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#6330cf] to-[#8553ec] text-white shadow-md transition-all hover:scale-105 active:scale-95 disabled:opacity-40 lg:h-8 lg:w-8"
+                    aria-label="Send message"
+                >
+                    <Send size={15} />
+                </button>
+            </form>
+        </>
+    )
+
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+        <>
+            <AnimatePresence>
+                {isOpen && !isDesktop && (
+                    <motion.div
+                        key="scrim"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        onClick={() => setIsOpen(false)}
+                        className="fixed inset-0 z-[60] bg-black/45 backdrop-blur-[2px] lg:hidden"
+                    />
+                )}
+            </AnimatePresence>
+
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
-                        initial={{ opacity: 0, y: 16, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 16, scale: 0.96 }}
-                        transition={{ duration: 0.2, ease: 'easeOut' }}
-                        className="mb-4 flex h-[500px] w-[350px] sm:w-[380px] flex-col overflow-hidden rounded-[24px] border border-black/[0.08] bg-white shadow-2xl dark:border-white/[0.1] dark:bg-[#121214]"
+                        key="assistant"
+                        role="dialog"
+                        aria-modal={!isDesktop}
+                        aria-label="Swippable Assistant"
+                        drag={isDesktop ? false : 'y'}
+                        dragControls={dragControls}
+                        dragListener={false}
+                        dragConstraints={{ top: 0, bottom: 0 }}
+                        dragElastic={{ top: 0, bottom: 0.4 }}
+                        onDragEnd={handleDragEnd}
+                        initial={isDesktop ? { opacity: 0, y: 16, scale: 0.96 } : { y: '100%' }}
+                        animate={isDesktop ? { opacity: 1, y: 0, scale: 1 } : { y: 0 }}
+                        exit={isDesktop ? { opacity: 0, y: 16, scale: 0.96 } : { y: '100%' }}
+                        transition={
+                            isDesktop
+                                ? { duration: 0.2, ease: 'easeOut' }
+                                : { type: 'spring', stiffness: 380, damping: 38 }
+                        }
+                        className={cn(
+                            'fixed z-[61] flex flex-col overflow-hidden bg-white shadow-2xl dark:bg-[#121214]',
+                            // Phone: a sheet edge-to-edge along the bottom.
+                            'inset-x-0 bottom-0 h-[88dvh] max-h-[88dvh] rounded-t-[28px]',
+                            // Desktop: the anchored panel above the action button.
+                            'lg:inset-x-auto lg:bottom-24 lg:right-6 lg:h-[520px] lg:max-h-[calc(100dvh-9rem)] lg:w-[380px] lg:rounded-[24px] lg:border lg:border-black/[0.08] lg:dark:border-white/[0.1]'
+                        )}
                     >
-                        {/* Header */}
-                        <div className="flex items-center justify-between border-b border-black/[0.05] bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-5 py-4 text-white dark:border-white/[0.08]">
-                            <div className="flex items-center gap-2.5">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 backdrop-blur-md">
-                                    <Bot size={18} className="text-white" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-bold tracking-tight">Swippable Assistant</h3>
-                                    <p className="text-[10px] text-white/80 font-medium">AI Financial Copilot</p>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setIsOpen(false)}
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white"
-                                aria-label="Close Assistant"
-                            >
-                                <X size={15} />
-                            </button>
-                        </div>
-
-                        {/* Messages Content */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fafafc] dark:bg-[#0d0d0f] scrollbar-none">
-                            {messages.map((msg) => (
-                                <div
-                                    key={msg.id}
-                                    className={cn(
-                                        'flex gap-2 text-xs',
-                                        msg.type === 'user' ? 'justify-end' : 'justify-start'
-                                    )}
-                                >
-                                    {msg.type === 'bot' && (
-                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#f0eaff] text-[#6330cf] dark:bg-[#281b45] dark:text-[#c4a8ff] mt-0.5">
-                                            <Sparkles size={12} />
-                                        </div>
-                                    )}
-                                    <div
-                                        className={cn(
-                                            'max-w-[80%] rounded-2xl px-3.5 py-2.5 shadow-sm leading-relaxed',
-                                            msg.type === 'user'
-                                                ? 'bg-[#6330cf] text-white rounded-tr-none'
-                                                : 'bg-white text-[#1c1c24] border border-black/[0.04] dark:bg-[#1a1a1d] dark:border-white/[0.06] dark:text-[#f0f0f4] rounded-tl-none'
-                                        )}
-                                    >
-                                        <p>{msg.text}</p>
-                                        <span className="block mt-1 text-[9px] opacity-60 text-right">
-                                            {msg.timestamp}
-                                        </span>
-                                    </div>
-                                    {msg.type === 'user' && (
-                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#19191b] text-white dark:bg-white dark:text-black mt-0.5">
-                                            <User size={12} />
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-
-                            {isTyping && (
-                                <div className="flex items-center gap-2 text-xs text-[#777984]">
-                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#f0eaff] text-[#6330cf] dark:bg-[#281b45]">
-                                        <Sparkles size={12} />
-                                    </div>
-                                    <div className="flex gap-1 rounded-full bg-white px-3 py-2 border border-black/[0.05] dark:bg-[#1a1a1d] dark:border-white/[0.06]">
-                                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#8553ec]" style={{ animationDelay: '0ms' }} />
-                                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#8553ec]" style={{ animationDelay: '150ms' }} />
-                                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#8553ec]" style={{ animationDelay: '300ms' }} />
-                                    </div>
-                                </div>
-                            )}
-                            <div ref={messagesEndRef} />
-                        </div>
-
-                        {/* Quick Prompts */}
-                        <div className="flex gap-1.5 overflow-x-auto px-3 py-2 bg-white dark:bg-[#121214] border-t border-black/[0.04] dark:border-white/[0.05] scrollbar-none">
-                            {quickPrompts.map((prompt) => (
-                                <button
-                                    key={prompt}
-                                    type="button"
-                                    onClick={() => handleSendMessage(prompt)}
-                                    className="shrink-0 rounded-full bg-[#f5f5f7] hover:bg-[#edeef2] px-2.5 py-1 text-[10px] font-medium text-[#555660] transition-colors dark:bg-white/[0.06] dark:text-[#a0a2af] dark:hover:bg-white/[0.1]"
-                                >
-                                    {prompt}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Input Area */}
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault()
-                                handleSendMessage()
-                            }}
-                            className="flex items-center gap-2 border-t border-black/[0.05] bg-white p-3 dark:border-white/[0.06] dark:bg-[#121214]"
-                        >
-                            <input
-                                type="text"
-                                value={inputText}
-                                onChange={(e) => setInputText(e.target.value)}
-                                placeholder="Ask Swippable AI..."
-                                className="flex-1 rounded-full bg-[#f5f5f7] px-4 py-2 text-xs outline-none focus:ring-1 focus:ring-[#8553ec] dark:bg-[#1c1c20] dark:text-white dark:placeholder:text-[#6a6c76]"
-                            />
-                            <button
-                                type="submit"
-                                disabled={!inputText.trim()}
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#6330cf] to-[#8553ec] text-white shadow-md disabled:opacity-40 transition-all hover:scale-105 active:scale-95"
-                                aria-label="Send message"
-                            >
-                                <Send size={13} />
-                            </button>
-                        </form>
+                        {panel}
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Floating Action Button */}
+            {/* Action button. On a phone it clears the tab dock; the sheet hides
+                it while open because the sheet carries its own close control. */}
             <button
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="group relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-[#6330cf] via-[#7b46ea] to-[#925FFF] text-white shadow-[0_8px_28px_rgba(99,48,207,0.35)] transition-all hover:scale-105 active:scale-95"
-                aria-label="Toggle AI Assistant"
+                onClick={() => setIsOpen((open) => !open)}
+                className={cn(
+                    'fixed right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-[#6330cf] via-[#7b46ea] to-[#925FFF] text-white shadow-[0_8px_28px_rgba(99,48,207,0.35)] transition-all hover:scale-105 active:scale-95 lg:right-6',
+                    'bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] lg:bottom-6',
+                    isOpen && 'pointer-events-none scale-90 opacity-0 lg:pointer-events-auto lg:scale-100 lg:opacity-100'
+                )}
+                aria-label={isOpen ? 'Close AI Assistant' : 'Open AI Assistant'}
+                aria-expanded={isOpen}
             >
                 {isOpen ? (
                     <X size={22} />
                 ) : (
                     <>
-                        <MessageSquare size={22} className="transition-transform group-hover:scale-110" />
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#19c9a2] ring-2 ring-white text-[9px] font-bold text-white dark:ring-[#080808]">
+                        <MessageSquare size={22} />
+                        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#19c9a2] text-[9px] font-bold text-white ring-2 ring-[#f5f5f7] dark:ring-[#080808]">
                             ✦
                         </span>
                     </>
                 )}
             </button>
-        </div>
+        </>
     )
 }
 

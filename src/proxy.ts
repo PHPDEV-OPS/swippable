@@ -10,15 +10,20 @@ import { clerkMiddleware } from '@clerk/nextjs/server'
  *     cards
  *   - `AdminShell` and `AuthGuard` send signed-out visitors to /sign-in
  *
- * Path matching in middleware can diverge from how Next.js actually routes a
- * request, so it is a poor place to put the boundary - and protecting pages
- * there returned a bare 404 to a signed-out visitor instead of the sign-in page.
+ * Path matching here can diverge from how Next.js actually routes a request, so
+ * it is a poor place to put the boundary - and protecting pages here returned a
+ * bare 404 to a signed-out visitor instead of the sign-in page.
+ *
+ * This lives in `proxy.ts` rather than `middleware.ts`: Next 16 deprecated the
+ * middleware file convention, and Clerk reads either. Without it `auth()`
+ * throws "Clerk can't detect usage of clerkMiddleware()" and every server
+ * component that checks the session 500s.
  */
 export default clerkMiddleware()
 
 export const config = {
     matcher: [
-        '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+        '/((?!_next|[^?]*\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
         '/(api|trpc)(.*)',
         '/__clerk/:path*',
     ],

@@ -46,6 +46,7 @@ import {
     useTransactions,
     useWallet,
 } from '@/lib/client-api'
+import { useIsDesktop } from '@/lib/use-media-query'
 
 type Timeframe = '7D' | '1M' | '1Y'
 
@@ -220,13 +221,15 @@ export function Wallet() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                {/* The two money actions split the width on a phone, so both
+                    are a full thumb-sized target instead of two small pills. */}
+                <div className="flex w-full items-center gap-2.5 md:w-auto">
                     <motion.button
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
                         type="button"
                         onClick={() => setIsReceiveModalOpen(true)}
-                        className="flex cursor-pointer items-center gap-2 rounded-2xl border border-black/[0.05] bg-white px-4 py-2.5 text-xs font-bold text-[#1c1c24] shadow-sm transition-colors hover:bg-[#f5f5f7] dark:border-white/[0.08] dark:bg-[#121214] dark:text-white dark:hover:bg-white/5"
+                        className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-black/[0.05] bg-white px-4 py-3 text-xs font-bold text-[#1c1c24] shadow-sm transition-colors hover:bg-[#f5f5f7] md:flex-none md:py-2.5 dark:border-white/[0.08] dark:bg-[#121214] dark:text-white dark:hover:bg-white/5"
                     >
                         <QrCode size={15} />
                         <span>Receive</span>
@@ -237,7 +240,7 @@ export function Wallet() {
                         whileTap={{ scale: 0.97 }}
                         type="button"
                         onClick={() => setIsDepositModalOpen(true)}
-                        className="flex cursor-pointer items-center gap-2 rounded-2xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-5 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:opacity-95"
+                        className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-5 py-3 text-xs font-bold text-white shadow-md transition-all hover:opacity-95 md:flex-none md:py-2.5"
                     >
                         <Coins size={14} />
                         <span>Deposit Funds</span>
@@ -376,7 +379,7 @@ export function Wallet() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: 0.2 }}
-                    className="rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none lg:col-span-8 sm:p-7"
+                    className="rounded-[28px] border border-black/[0.04] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none lg:col-span-8 sm:p-7"
                 >
                     <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                         <div>
@@ -480,7 +483,7 @@ export function Wallet() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: 0.25 }}
-                    className="flex flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none lg:col-span-4 sm:p-7"
+                    className="flex flex-col justify-between rounded-[28px] border border-black/[0.04] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none lg:col-span-4 sm:p-7"
                 >
                     <div>
                         <h2 className="text-[15px] font-bold tracking-tight text-[#1c1c24] dark:text-white">
@@ -554,7 +557,7 @@ export function Wallet() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: 0.3 }}
-                className="rounded-[28px] border border-black/[0.04] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none sm:p-7"
+                className="rounded-[28px] border border-black/[0.04] bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:p-6 dark:border-white/[0.06] dark:bg-[#121214] dark:shadow-none sm:p-7"
             >
                 <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
@@ -606,7 +609,60 @@ export function Wallet() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Phone view: the same movements as a list, with the columns
+                    that only matter on a wide screen folded into a subtitle. */}
+                <div className="divide-y divide-black/[0.04] lg:hidden dark:divide-white/[0.05]">
+                    {walletTransactions.map((tx) => (
+                        <div key={tx.id} className="flex items-center gap-3 py-3.5">
+                            <div
+                                className={cn(
+                                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm shadow-sm',
+                                    tx.type === 'CREDIT'
+                                        ? 'bg-[#e7faf4] text-[#12b88f] dark:bg-[#0b3c32]'
+                                        : 'bg-[#f0eaff] text-[#7042f4] dark:bg-[#281b45]'
+                                )}
+                            >
+                                {tx.type === 'CREDIT' ? '↓' : '↗'}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-bold text-[#1c1c24] dark:text-white">
+                                    {tx.merchant}
+                                </p>
+                                <p className="truncate text-[11px] text-[#9a9ca4]">
+                                    {new Date(tx.createdAt).toLocaleDateString(undefined, {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    })}
+                                    {' · '}
+                                    {tx.channel.replace('_', ' ')}
+                                </p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                                <p className="text-sm font-extrabold text-[#1c1c24] dark:text-white">
+                                    {tx.type === 'CREDIT' ? '+ ' : '− '}
+                                    {formatMoney(tx.amount, tx.currency).replace('-', '')}
+                                </p>
+                                {tx.status !== 'SUCCESS' && (
+                                    <span
+                                        className={cn(
+                                            'mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold',
+                                            tx.status === 'PENDING' &&
+                                                'bg-[#fef7eb] text-[#e9a72b] dark:bg-[#38270b] dark:text-[#f7b746]',
+                                            tx.status === 'FAILED' &&
+                                                'bg-[#ffebeb] text-[#ef5362] dark:bg-[#3c151a] dark:text-[#ff7a87]'
+                                        )}
+                                    >
+                                        {tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="hidden overflow-x-auto lg:block">
                     <table className="w-full text-left text-xs">
                         <thead>
                             <tr className="border-b border-black/[0.04] text-[10px] font-bold uppercase tracking-wider text-[#9a9ca4] dark:border-white/[0.06]">
@@ -676,21 +732,21 @@ export function Wallet() {
                             ))}
                         </tbody>
                     </table>
-
-                    {!transactionsQuery.isLoading && walletTransactions.length === 0 && (
-                        <p className="py-10 text-center text-xs text-[#81858c]">
-                            No wallet movements yet.{' '}
-                            <button
-                                type="button"
-                                onClick={() => setIsDepositModalOpen(true)}
-                                className="font-bold text-[#6330cf] dark:text-[#bca4ff]"
-                            >
-                                Make your first deposit
-                            </button>
-                            .
-                        </p>
-                    )}
                 </div>
+
+                {!transactionsQuery.isLoading && walletTransactions.length === 0 && (
+                    <p className="py-10 text-center text-xs text-[#81858c]">
+                        No wallet movements yet.{' '}
+                        <button
+                            type="button"
+                            onClick={() => setIsDepositModalOpen(true)}
+                            className="font-bold text-[#6330cf] dark:text-[#bca4ff]"
+                        >
+                            Make your first deposit
+                        </button>
+                        .
+                    </p>
+                )}
             </motion.div>
 
             <LinkedWallets wallets={wallet.data?.wallets ?? []} loading={wallet.isLoading} />
@@ -1006,8 +1062,18 @@ function Modal({
     onClose: () => void
     className?: string
 }) {
+    const isDesktop = useIsDesktop()
+
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onClose()
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [onClose])
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -1015,15 +1081,22 @@ function Modal({
                 className="fixed inset-0 bg-black/60 backdrop-blur-sm"
                 onClick={onClose}
             />
+            {/* Deposit and receive both sit at the bottom of a phone screen,
+                within thumb reach, and scroll internally rather than running
+                their action buttons off the viewport. */}
             <motion.div
-                initial={{ opacity: 0, scale: 0.94, y: 15 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.94, y: 15 }}
+                role="dialog"
+                aria-modal="true"
+                initial={isDesktop ? { opacity: 0, scale: 0.94, y: 15 } : { y: '100%' }}
+                animate={isDesktop ? { opacity: 1, scale: 1, y: 0 } : { y: 0 }}
+                exit={isDesktop ? { opacity: 0, scale: 0.94, y: 15 } : { y: '100%' }}
+                transition={{ type: 'spring', stiffness: 380, damping: 38 }}
                 className={cn(
-                    'relative z-10 w-full max-w-md rounded-[28px] border border-black/[0.08] bg-white p-6 text-[#1c1c24] shadow-2xl dark:border-white/[0.1] dark:bg-[#121214] dark:text-white',
+                    'scroll-touch relative z-10 max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] border border-black/[0.08] bg-white px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pt-5 text-[#1c1c24] shadow-2xl sm:max-h-[86dvh] sm:max-w-md sm:rounded-[28px] sm:p-6 dark:border-white/[0.1] dark:bg-[#121214] dark:text-white',
                     className
                 )}
             >
+                <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/15 sm:hidden dark:bg-white/20" />
                 {children}
             </motion.div>
         </div>
