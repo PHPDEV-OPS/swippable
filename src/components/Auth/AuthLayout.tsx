@@ -3,16 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { IsometricLayers } from './IsometricLayers'
-import {
-  UsdcBadge,
-  UsdtBadge,
-  BaseBadge,
-  ArbitrumBadge,
-  EthereumBadge,
-  OptimismBadge,
-  PolygonBadge,
-  AvalancheBadge,
-} from './NetworkBadges'
+import { WalletSignInOptions } from './WalletSignInOptions'
 import { UserPlus, LogIn } from 'lucide-react'
 
 interface AuthLayoutProps {
@@ -20,119 +11,100 @@ interface AuthLayoutProps {
   mode: 'sign-in' | 'sign-up'
 }
 
+/**
+ * The sign-in and sign-up frame.
+ *
+ * The form column owns a single vertical rhythm: one centred stack whose
+ * spacing comes from one `gap`, rather than the previous mix of `my-auto` on
+ * the card and a margin on the banner above it, which left the card sitting at
+ * a different height on every breakpoint.
+ */
 export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, mode }) => {
   const isSignIn = mode === 'sign-in'
 
   return (
-    <div className="min-h-screen lg:h-screen lg:max-h-screen w-full bg-[#f7f7f8] flex flex-col lg:flex-row font-sans selection:bg-[#7042f4]/20 selection:text-[#7042f4] overflow-x-hidden lg:overflow-hidden">
-      {/* Left Column: Auth form area */}
+    <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-[#f7f7f8] font-sans selection:bg-[#7042f4]/20 selection:text-[#7042f4] lg:h-[100dvh] lg:max-h-[100dvh] lg:flex-row lg:overflow-hidden">
+      {/* Form column */}
       <div
-        className="w-full lg:order-first lg:w-[44%] h-full flex flex-col justify-center items-center px-6 sm:px-10 lg:px-14 py-8 relative overflow-y-auto lg:overflow-hidden bg-[#f7f7f8] text-gray-900 [color-scheme:light]"
+        className="relative flex w-full flex-col items-center bg-[#f7f7f8] px-5 pb-10 pt-[calc(1.75rem+env(safe-area-inset-top,0px))] text-gray-900 [color-scheme:light] sm:px-10 lg:order-first lg:w-[44%] lg:justify-center lg:overflow-y-auto lg:px-14 lg:py-12"
         style={{ colorScheme: 'light' }}
       >
-        {/* Mobile Top Hero Banner (Only on mobile) */}
-        <div className="w-full max-w-[420px] lg:hidden mb-9">
-          <div className="rounded-[22px] bg-gradient-to-br from-[#7847eb] to-[#6733d7] px-5 py-4 text-white flex items-center gap-3.5 shadow-lg shadow-[#7042f4]/25">
-            <div className="flex-shrink-0">
-              <IsometricLayers size={42} />
-            </div>
-            <div>
-              <span className="font-bold text-white text-sm sm:text-base">Stablecoin payments </span>
-              <span className="font-normal text-white/75 text-sm sm:text-base">infrastructure</span>
-            </div>
-          </div>
-        </div>
+        {/*
+          `my-auto` centres the stack in the leftover space on a tall screen and
+          simply collapses on a short one, so the card never gets pushed off the
+          top of a phone the way a hard `justify-center` would.
+        */}
+        <div className="my-auto flex w-full max-w-[420px] flex-col items-center gap-8">
+          {/* Brand band. The panel on the right carries this on desktop. */}
+          <Link
+            href="/"
+            className="flex w-full items-center gap-3.5 rounded-[22px] bg-gradient-to-br from-[#7847eb] to-[#6733d7] px-5 py-4 text-white shadow-lg shadow-[#7042f4]/25 transition-transform active:scale-[0.99] lg:hidden"
+          >
+            <IsometricLayers size={42} />
+            <span className="text-[15px] leading-snug">
+              <span className="font-bold">Stablecoin payments </span>
+              <span className="text-white/75">infrastructure</span>
+            </span>
+          </Link>
 
-        {/* Center Auth Card Container - Exactly matches screenshot */}
-        <div
-          className="w-full max-w-[420px] mx-auto flex flex-col items-center justify-center my-auto [color-scheme:light]"
-          style={{ colorScheme: 'light' }}
-        >
-          {/* Clerk Component Slot */}
-          <div className="w-full flex justify-center [color-scheme:light]">{children}</div>
+          <div className="flex w-full justify-center [color-scheme:light]">{children}</div>
+
+          <WalletSignInOptions />
         </div>
       </div>
 
-      {/* Right Column: Swippable product panel */}
-      <div className="hidden lg:flex lg:order-last lg:w-[56%] h-full p-3 overflow-hidden">
-        <div className="w-full h-full rounded-[28px] lg:rounded-[32px] bg-gradient-to-br from-[#7847eb] to-[#6733d7] text-white p-7 lg:p-9 xl:p-11 flex flex-col justify-between overflow-hidden shadow-[0_18px_50px_rgba(112,66,244,0.22)] relative">
-          {/* Subtle decorative glow */}
-          <div className="absolute -top-24 -right-24 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-black/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Product panel */}
+      <div className="hidden p-3 lg:order-last lg:flex lg:h-full lg:w-[56%] lg:overflow-hidden">
+        <div className="relative flex h-full w-full flex-col justify-between overflow-hidden rounded-[32px] bg-gradient-to-br from-[#7847eb] to-[#6733d7] p-9 text-white shadow-[0_18px_50px_rgba(112,66,244,0.22)] xl:p-11">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-black/10 blur-3xl" />
 
-          {/* Top Bar with Switch Link */}
-          <div className="flex items-center justify-end relative z-10">
+          <div className="relative z-10 flex items-center justify-end">
             <Link
               href={isSignIn ? '/sign-up' : '/sign-in'}
-              className="flex items-center gap-2 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 backdrop-blur-md px-4 py-2 text-[13px] font-semibold text-white tracking-tight transition-all shadow-sm hover:scale-102 active:scale-98"
+              className="flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-4 py-2 text-[13px] font-semibold tracking-tight text-white shadow-sm backdrop-blur-md transition-all hover:scale-102 hover:bg-white/25 active:scale-98"
             >
               {isSignIn ? (
                 <>
-                  <UserPlus size={14} className="text-white" />
+                  <UserPlus size={14} />
                   <span>Create an account</span>
                 </>
               ) : (
                 <>
-                  <LogIn size={14} className="text-white" />
+                  <LogIn size={14} />
                   <span>Sign in</span>
                 </>
               )}
             </Link>
           </div>
 
-          {/* Center Showcase Content */}
-          <div className="flex flex-col items-center text-center my-auto py-2 relative z-10">
-            {/* 3D Isometric Stack */}
-            <IsometricLayers size={240} className="filter drop-shadow-xl" />
+          {/*
+            One headline, not two. The second line used to repeat the first at
+            the same size in 60% white, which read as a rendering fault rather
+            than a deliberate pair.
+          */}
+          <div className="relative z-10 my-auto flex flex-col items-center py-2 text-center">
+            <IsometricLayers size={220} className="drop-shadow-xl" />
 
-            {/* Pill Tag */}
-            <div className="inline-flex items-center rounded-full bg-white/15 backdrop-blur-sm border border-white/20 px-4 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-white mt-7 mb-5">
-              SWIPPABLE PAYMENTS
-            </div>
-
-            {/* Dual Headline */}
-            <h2 className="text-[28px] xl:text-[34px] font-extrabold text-white tracking-tight leading-tight">
+            <h2 className="mt-9 max-w-xl text-[30px] font-extrabold leading-[1.12] tracking-tight xl:text-[36px]">
               Move money without borders.
             </h2>
-            <h3 className="text-[28px] xl:text-[34px] font-normal text-white/60 tracking-tight leading-tight mt-1">
-              Keep your value in digital dollars.
-            </h3>
 
-            {/* Explanatory Body */}
-            <p className="text-white/85 text-[13.5px] xl:text-[15px] leading-relaxed max-w-lg mt-5">
-              Swippable lets you pay with stablecoins, spend from one flexible wallet, and turn digital dollars into everyday money when you need it.
+            <p className="mt-5 max-w-md text-[14.5px] leading-relaxed text-white/85 xl:text-[15px]">
+              Pay with stablecoins, spend from one flexible wallet, and turn digital dollars
+              into everyday money when you need it.
             </p>
-            <p className="text-white/70 text-[13.5px] xl:text-[15px] leading-relaxed max-w-lg mt-3">
+            <p className="mt-3 max-w-md text-[14.5px] leading-relaxed text-white/70 xl:text-[15px]">
               Secure cards, fast transfers, and a clearer view of your money in one place.
             </p>
           </div>
 
-          {/* Bottom Badges Bar */}
           <div className="relative z-10">
-            <div className="border-t border-dashed border-white/25 w-full mb-4" />
-            <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/75">
-              {/* Accepted Tokens */}
-              <div className="flex items-center gap-2">
-                <span>ACCEPTED</span>
-                <div className="flex items-center gap-1.5">
-                  <UsdcBadge size={20} />
-                  <UsdtBadge size={20} />
-                </div>
-              </div>
-
-              {/* Supported Networks */}
-              <div className="flex items-center gap-2">
-                <span>NETWORKS</span>
-                <div className="flex items-center gap-1.5">
-                  <BaseBadge size={18} />
-                  <ArbitrumBadge size={18} />
-                  <EthereumBadge size={18} />
-                  <OptimismBadge size={18} />
-                  <PolygonBadge size={18} />
-                  <AvalancheBadge size={18} />
-                </div>
-              </div>
-            </div>
+            <div className="mb-4 w-full border-t border-dashed border-white/25" />
+            <p className="text-[12.5px] leading-relaxed text-white/70">
+              Top up with M-Pesa or USDC on Base, then issue as many virtual cards as you
+              need &mdash; every one of them spends from the same balance.
+            </p>
           </div>
         </div>
       </div>

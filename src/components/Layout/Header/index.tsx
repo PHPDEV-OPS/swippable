@@ -90,15 +90,18 @@ const Header: React.FC = () => {
               </>
             )}
           </div>
-          </div>
+          {/* Kept inside the flex row: outside it the button dropped onto its
+              own full-width line below the logo on every phone. */}
           <button
             onClick={() => setNavbarOpen(!navbarOpen)}
-            className='block lg:hidden p-2 rounded-lg'
-            aria-label='Toggle mobile menu'>
-            <span className='block w-6 h-0.5 bg-white'></span>
-            <span className='block w-6 h-0.5 bg-white mt-1.5'></span>
-            <span className='block w-6 h-0.5 bg-white mt-1.5'></span>
+            className='-mr-2 flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-1.5 rounded-lg lg:hidden'
+            aria-label='Toggle mobile menu'
+            aria-expanded={navbarOpen}>
+            <span className='block h-0.5 w-6 bg-white'></span>
+            <span className='block h-0.5 w-6 bg-white'></span>
+            <span className='block h-0.5 w-6 bg-white'></span>
           </button>
+          </div>
         </div>
         {navbarOpen && (
           <div className='fixed top-0 left-0 w-full h-full bg-black/50 z-40' />

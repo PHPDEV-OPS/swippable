@@ -72,7 +72,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
     if (session.isError || !session.data) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#6330cf] to-[#4a1fa5] px-6">
+            <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-[#6330cf] to-[#4a1fa5] px-6">
                 <div className="max-w-sm text-center">
                     <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white">
                         <ShieldAlert size={22} />
@@ -98,7 +98,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     const fullyHalted = Boolean(killSwitch.data?.engaged)
 
     return (
-        <div className={cn('min-h-screen bg-[#f5f5f7] transition-colors dark:bg-[#08080a]')}>
+        <div className={cn('min-h-[100dvh] bg-[#f5f5f7] transition-colors dark:bg-[#08080a]')}>
             {/* Platform-halted band. Pinned above everything, impossible to miss. */}
             <AnimatePresence>
                 {isHalted && (

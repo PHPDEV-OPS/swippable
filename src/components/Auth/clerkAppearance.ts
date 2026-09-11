@@ -25,31 +25,42 @@ export const authClerkAppearance = {
         card: '!w-full !max-w-[420px] !shadow-none !border-none !bg-transparent !p-0',
 
         // Display heading, sized to the design rather than Clerk's default.
+        // It steps down on a phone so the title never wraps to three lines
+        // above a form the person still has to scroll to.
         header: '!text-center !p-0 !mb-6',
-        headerTitle: '!text-[38px] !leading-[1.1] !font-bold !text-[#09090b] !tracking-[-0.02em]',
-        headerSubtitle: '!text-[15px] !font-normal !text-[#52525b] !mt-2.5',
+        headerTitle:
+            '!text-[30px] sm:!text-[38px] !leading-[1.1] !font-bold !text-[#09090b] !tracking-[-0.02em]',
+        headerSubtitle: '!text-[14.5px] sm:!text-[15px] !font-normal !text-[#52525b] !mt-2.5',
 
         // A dashed rule separates the heading from the form in the design.
         main: '!gap-0 !border-t !border-dashed !border-[#d9d9e0] !pt-7',
 
+        // Three wallet/social options stack here, so they carry their own even
+        // rhythm rather than inheriting Clerk's default spacing.
+        socialButtons: '!flex !w-full !flex-col !gap-2.5',
         socialButtonsBlockButton:
-            '!w-full !h-[52px] !bg-[#f4f4f6] hover:!bg-[#ebebef] active:!bg-[#e4e4ea] !border-none !rounded-full !text-[#18181b] !font-semibold !text-[15px] !shadow-none flex items-center justify-center gap-3 transition-colors cursor-pointer',
-        socialButtonsBlockButtonText: '!text-[#18181b] !font-semibold !text-[15px]',
+            '!w-full !h-[48px] sm:!h-[52px] !bg-[#f4f4f6] hover:!bg-[#ebebef] active:!bg-[#e4e4ea] !border-none !rounded-full !text-[#18181b] !font-semibold !text-[15px] !shadow-none flex items-center justify-center gap-3 transition-colors cursor-pointer',
+        socialButtonsBlockButtonText: '!text-[#18181b] !font-semibold !text-[14.5px] sm:!text-[15px]',
         socialButtonsProviderIcon: '!w-[19px] !h-[19px]',
 
         dividerRow: '!my-5 !flex !items-center !justify-center',
         dividerLine: '!bg-transparent !h-0 !border-t !border-dashed !border-[#d9d9e0]',
         dividerText: '!text-[#9ca3af] !text-[13px] !font-normal !px-3.5 !bg-transparent',
 
+        form: '!gap-0',
         formField: '!mb-4',
         formFieldLabel: '!text-[13.5px] !font-semibold !text-[#18181b] !mb-2 !block !text-left',
+        formFieldAction: '!text-[13px] !font-semibold !text-[#7042f4] hover:!text-[#6330cf]',
         // Filled, borderless input - the outlined white box is not the design.
+        // 16px on a phone: anything smaller makes iOS Safari zoom the viewport
+        // the moment the field takes focus, and it never zooms back out.
         formFieldInput:
-            '!w-full !h-[52px] !rounded-[16px] !border !border-transparent focus:!border-[#7042f4] focus:!ring-4 focus:!ring-[#7042f4]/12 !bg-[#f4f4f6] !text-[#09090b] !text-[15px] !px-4 placeholder:!text-[#9ca3af] !outline-none transition-all',
+            '!w-full !h-[48px] sm:!h-[52px] !rounded-[16px] !border !border-transparent focus:!border-[#7042f4] focus:!ring-4 focus:!ring-[#7042f4]/12 !bg-[#f4f4f6] !text-[#09090b] !text-[16px] sm:!text-[15px] !px-4 placeholder:!text-[#9ca3af] !outline-none transition-all',
         formFieldInputShowPasswordButton: '!text-[#9ca3af] hover:!text-[#52525b]',
+        formFieldErrorText: '!text-[12.5px] !mt-1.5',
 
         formButtonPrimary:
-            '!w-full !h-[52px] !rounded-full !bg-[#7042f4] hover:!bg-[#6330cf] active:!scale-[0.99] !text-white !font-semibold !text-[15px] !shadow-[0_6px_18px_rgba(112,66,244,0.28)] !normal-case !tracking-normal transition-all cursor-pointer !mt-1 flex items-center justify-center gap-2',
+            '!w-full !h-[48px] sm:!h-[52px] !rounded-full !bg-[#7042f4] hover:!bg-[#6330cf] active:!scale-[0.99] !text-white !font-semibold !text-[15px] !shadow-[0_6px_18px_rgba(112,66,244,0.28)] !normal-case !tracking-normal transition-all cursor-pointer !mt-2 flex items-center justify-center gap-2',
 
         formResendCodeLink: '!text-[#7042f4] hover:!text-[#6330cf] !font-semibold',
         identityPreviewEditButton: '!text-[#7042f4]',
