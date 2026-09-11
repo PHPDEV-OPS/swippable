@@ -1,0 +1,116 @@
+@startuml Swippable_User_Flow
+!pragma layout smetana
+
+skinparam backgroundColor #FAFAF8
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #2563EB
+  DiamondBackgroundColor #FFF8E7
+  DiamondBorderColor #D97706
+  ArrowColor #4B5563
+  BarColor #059669
+  StartColor #059669
+  EndColor #DC2626
+}
+skinparam note {
+  BackgroundColor #FFF8E7
+  BorderColor #D97706
+}
+
+title Swippable User Journey
+
+start
+
+:Open Swippable;
+
+if (Existing account?) then (no)
+  :Create account;
+  :Clerk sign-up\n(email, OAuth, Base/Coinbase Wallet);
+  :Register user profile\n(/api/register);
+else (yes)
+  :Clerk sign-in;
+endif
+
+:Authenticated session established;
+:Open user dashboard;
+
+if (KYC required?) then (yes)
+  :Submit KYC details;
+  :KYC status stored\n(/api/kyc);
+endif
+
+fork
+  :View overview;
+  :Load balance, cards,\nactivity and allocation;
+  :Review analytics and\ntransaction history;
+fork again
+  :Open Wallet;
+  if (Need to add money?) then (yes)
+    if (Funding rail is M-Pesa?) then (M-Pesa)
+      :Enter amount and phone;
+      :Request STK push\n(/api/wallet/deposit);
+      :Approve payment on phone;
+      :M-Pesa callback received;
+      :Verify callback and settle\nPENDING deposit;
+    elseif (Funding rail is USDC?) then (USDC on Base)
+      :Link or select Base wallet;
+      :Declare deposit or copy\nprimary receiving address;
+      :USDC transfer confirmed\nby chain indexer;
+      :Match wallet address or\nsettle declared deposit;
+    else (Stripe checkout)
+      :Create checkout session;
+      :Complete Stripe payment;
+      :Payment callback settles\nwallet ledger;
+    endif
+    :Balance and ledger updated\natomically;
+    :Receive top-up notification;
+  endif
+  :View wallet balance,\npending deposits and linked wallets;
+fork again
+  :Open Cards;
+  if (Need a card?) then (yes)
+    :Choose holder, currency\nand funding amount;
+    :Request virtual card\n(/api/cards/issue);
+    :Check rail and available balance;
+    :Issuer creates virtual card;
+    :Reserve allocation and\nstore masked card locally;
+  endif
+  :View card stack and limits;
+  if (Card action) then (Reveal)
+    :Authenticated one-time reveal;
+    :Fetch secrets from issuer\n(no local PAN/CVV storage);
+  elseif (Pause / resume)
+    :Mirror status to issuer\nwhen available;
+  elseif (Terminate)
+    :Close card and release\nunspent allocation;
+  endif
+end fork
+
+:Use virtual card at merchant;
+:Issuer sends card transaction webhook;
+:Verify signature and claim event once;
+
+if (Authorisation allowed?) then (yes)
+  :Check account, card status,\nlimits, balance and rail state;
+  :Atomically debit wallet,\nupdate card spend and ledger;
+  :Return approved result;
+  :Receive payment notification;
+else (no)
+  :Classify decline reason;
+  :Record failed ledger attempt\nand diagnostic;
+  :Return declined result;
+endif
+
+:Refresh dashboard queries;
+:See current balance, cards,\nnotifications and transactions;
+
+note right
+  Every money movement is represented in the
+  Neon ledger. Provider callbacks are idempotent:
+  duplicate events do not double-credit or charge.
+end note
+
+stop
+@enduml
