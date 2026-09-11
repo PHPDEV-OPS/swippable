@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useAccount } from 'wagmi'
 import { formatMoney } from '@/lib/money'
@@ -27,7 +28,7 @@ import {
     useSetCardStatus,
     useWallet,
 } from '@/lib/client-api'
-import type { VirtualCard } from '@/types/api'
+import { isKycVerified, type VirtualCard } from '@/types/api'
 import { useIsDesktop } from '@/lib/use-media-query'
 import { SwippableCard } from './SwippableCard'
 import { useRevealCard, type RevealedCard } from '@/lib/client-api'
@@ -45,7 +46,13 @@ function errorMessage(error: unknown, fallback: string) {
     return error instanceof ApiRequestError ? error.message : fallback
 }
 
-const Cards = () => {
+interface CardsProps {
+    /** Opens the issuance modal on mount, for the /dashboard/cards/create route. */
+    autoOpenCreate?: boolean
+}
+
+const Cards = ({ autoOpenCreate = false }: CardsProps = {}) => {
+    const router = useRouter()
     const me = useMe()
     const wallet = useWallet('7D')
     const cardsQuery = useCards()
@@ -59,7 +66,7 @@ const Cards = () => {
     const { address, isConnected } = useAccount()
 
     const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
-    const [showCreateModal, setShowCreateModal] = useState(false)
+    const [showCreateModal, setShowCreateModal] = useState(autoOpenCreate)
     const [showFundModal, setShowFundModal] = useState<'FUND' | 'WITHDRAW' | null>(null)
 
     const reveal = useRevealCard()
@@ -91,6 +98,27 @@ const Cards = () => {
         // linkWallet is stable for the component's lifetime.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isConnected, address, wallet.data?.onChainAddress])
+
+    // The server is the authority on this - /api/cards/issue rejects an
+    // unverified caller regardless. Checking here only saves the user a failed
+    // request and points them at the form that will unblock them.
+    const kycVerified = isKycVerified(me.data?.kycStatus)
+
+    const requestCreateCard = () => {
+        if (!kycVerified) {
+            router.push('/dashboard/kyc-verification?returnTo=/dashboard/cards/create')
+            return
+        }
+        setShowCreateModal(true)
+    }
+
+    // A user who lands on /dashboard/cards/create is gated by that route's
+    // server layout, so this only ever guards a stale client cache.
+    useEffect(() => {
+        if (autoOpenCreate && me.data && !kycVerified) {
+            router.replace('/dashboard/kyc-verification?returnTo=/dashboard/cards/create')
+        }
+    }, [autoOpenCreate, me.data, kycVerified, router])
 
     const handleCreateCard = async () => {
         if (!initialAmount || Number(initialAmount) <= 0) {
@@ -194,7 +222,7 @@ const Cards = () => {
                     </p>
                 </div>
                 <button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={requestCreateCard}
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6330cf] to-[#8553ec] px-6 py-3.5 font-bold text-white shadow-lg shadow-purple-500/20 transition-all hover:opacity-95 active:scale-95 md:w-auto md:py-3"
                 >
                     <PlusCircle size={20} />
@@ -232,7 +260,7 @@ const Cards = () => {
                                     No cards yet. Issue one to allocate part of your wallet balance to it.
                                 </p>
                                 <button
-                                    onClick={() => setShowCreateModal(true)}
+                                    onClick={requestCreateCard}
                                     className="rounded-xl bg-[#6330cf] px-5 py-2.5 text-xs font-bold text-white transition-all hover:opacity-90"
                                 >
                                     + Issue Virtual Card

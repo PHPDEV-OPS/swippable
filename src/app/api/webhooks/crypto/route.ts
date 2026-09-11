@@ -21,6 +21,10 @@ export const runtime = 'nodejs'
  * Commerce and Helius all post a JSON body with an HMAC-SHA256 signature over
  * the raw payload, which is what `CRYPTO_WEBHOOK_SECRET` verifies here.
  *
+ * `CRYPTO_WEBHOOK_SECRET` is not a value you invent: it must be the signing key
+ * the provider issues for that specific webhook (Alchemy shows it on the
+ * webhook's detail page). A self-chosen secret will reject every delivery.
+ *
  * Two settlement paths:
  *   - the user declared the deposit first, leaving a PENDING row keyed by tx
  *     hash: that row is flipped to SUCCESS and the wallet credited
@@ -30,7 +34,16 @@ export const runtime = 'nodejs'
 export async function POST(request: Request) {
     const raw = await request.text()
 
-    if (!verifySignature(raw, request.headers.get('x-signature') ?? request.headers.get('x-webhook-signature'))) {
+    // Alchemy Notify signs with `x-alchemy-signature`; other indexers use
+    // `x-signature` or `x-webhook-signature`. All three are HMAC-SHA256 hex of
+    // the raw body, so one verifier covers them - but the header has to be
+    // read, or every Alchemy delivery is rejected as unsigned.
+    const signature =
+        request.headers.get('x-alchemy-signature') ??
+        request.headers.get('x-signature') ??
+        request.headers.get('x-webhook-signature')
+
+    if (!verifySignature(raw, signature)) {
         return NextResponse.json({ status: 'unauthorized' }, { status: 401 })
     }
 

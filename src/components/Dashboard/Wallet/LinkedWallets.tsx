@@ -33,6 +33,10 @@ const SOURCE_COPY: Record<LinkedWallet['source'], { label: string; hint: string 
     clerk: { label: 'Signed in with this wallet', hint: 'Ownership proved by signature at sign-in' },
     wallet_connect: { label: 'Connected in-app', hint: 'Connected from this browser' },
     manual: { label: 'Added manually', hint: 'Entered by hand' },
+    deposit_address: {
+        label: 'Your Swippable deposit address',
+        hint: 'Issued to you for receiving USDC — cannot be unlinked',
+    },
 }
 
 function shorten(address: string): string {
@@ -125,16 +129,24 @@ function WalletRow({
                         </button>
                     )}
 
-                    <button
-                        type="button"
-                        onClick={onUnlink}
-                        disabled={busy}
-                        className="cursor-pointer rounded-lg p-2 text-[#81858c] transition-colors hover:bg-[#ffebeb] hover:text-[#ef5362] disabled:opacity-50 dark:hover:bg-[#3c151a]"
-                        aria-label="Unlink address"
-                        title="Unlink"
-                    >
-                        <Unlink size={14} />
-                    </button>
+                    {/*
+                      The platform-derived deposit address has no unlink
+                      control: it is the destination on the user's QR code, and
+                      the API refuses to remove it. Showing a button that always
+                      fails would be worse than showing none.
+                    */}
+                    {wallet.source !== 'deposit_address' && (
+                        <button
+                            type="button"
+                            onClick={onUnlink}
+                            disabled={busy}
+                            className="cursor-pointer rounded-lg p-2 text-[#81858c] transition-colors hover:bg-[#ffebeb] hover:text-[#ef5362] disabled:opacity-50 dark:hover:bg-[#3c151a]"
+                            aria-label="Unlink address"
+                            title="Unlink"
+                        >
+                            <Unlink size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

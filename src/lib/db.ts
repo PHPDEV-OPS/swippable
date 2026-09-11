@@ -32,6 +32,53 @@ async function ensureSchema() {
         // admin request has ever touched this database.
         await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'ACTIVE'`
 
+        // ── KYC identity columns ──────────────────────────────────────────
+        // The legal name and DOB are held separately from the display `name`
+        // Clerk gives us: `name` is whatever the user typed at sign-up, these
+        // are what the national identity database says, and only the latter may
+        // be used for card issuance or compliance.
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT`
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT`
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS national_id_number TEXT`
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE`
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS dojah_reference TEXT`
+        // One national ID may back exactly one account. Without this, the same
+        // person could open unlimited accounts and each would pass KYC, which
+        // defeats both the sanctions check and any per-person limit. Partial so
+        // the many not-yet-verified users (all NULL) do not collide.
+        await sql`CREATE UNIQUE INDEX IF NOT EXISTS users_national_id_key
+                    ON users (national_id_number)
+                 WHERE national_id_number IS NOT NULL`
+
+        // Every verification attempt, pass or fail. Drives the rate limit and
+        // gives compliance an answer to "why is this account verified?".
+        await sql`CREATE TABLE IF NOT EXISTS kyc_attempts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL DEFAULT 'dojah',
+      outcome TEXT NOT NULL,
+      reference TEXT,
+      -- Which fields disagreed with the national record. Never the values
+      -- themselves, only the field names, so a leaked log reveals no PII.
+      mismatched_fields TEXT[] NOT NULL DEFAULT '{}',
+      detail TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`
+        await sql`CREATE INDEX IF NOT EXISTS kyc_attempts_user_idx ON kyc_attempts(user_id, created_at DESC)`
+
+        // `PENDING` now means "submitted, awaiting an answer". Rows created
+        // before identity verification existed were parked in PENDING purely as
+        // a default, so move those to UNVERIFIED - otherwise the UI would tell
+        // long-standing users their check is "still processing" forever. Only
+        // rows that never reached a provider are touched.
+        await sql`ALTER TABLE users ALTER COLUMN kyc_status SET DEFAULT 'UNVERIFIED'`
+        await sql`UPDATE users
+                     SET kyc_status = 'UNVERIFIED'
+                   WHERE kyc_status = 'PENDING'
+                     AND dojah_reference IS NULL
+                     AND verified_at IS NULL`
+
         await sql`CREATE TABLE IF NOT EXISTS crypto_wallets (
       id SERIAL PRIMARY KEY,
       wallet_id TEXT UNIQUE NOT NULL,
@@ -55,6 +102,15 @@ async function ensureSchema() {
                     ON crypto_wallets (LOWER(base_account_address))
                  WHERE base_account_address IS NOT NULL`
         await sql`CREATE INDEX IF NOT EXISTS crypto_wallets_user_idx ON crypto_wallets(user_id)`
+        // Set only on platform-derived deposit addresses, so the address can be
+        // re-derived from the master mnemonic if this row is ever lost.
+        await sql`ALTER TABLE crypto_wallets ADD COLUMN IF NOT EXISTS derivation_index INTEGER`
+        // A user gets exactly one derived deposit address. Without this, a
+        // retried provisioning could hand the same person two addresses and
+        // leave the UI showing whichever it happened to read first.
+        await sql`CREATE UNIQUE INDEX IF NOT EXISTS crypto_wallets_deposit_user_key
+                    ON crypto_wallets (user_id)
+                 WHERE source = 'deposit_address'`
 
         // No raw PAN or CVV is ever persisted - only the masked pan and last 4.
         await sql`CREATE TABLE IF NOT EXISTS cards (
@@ -184,6 +240,12 @@ export interface UserRow {
     currency: string
     account_status: string
     created_at: string
+    first_name: string | null
+    last_name: string | null
+    national_id_number: string | null
+    date_of_birth: string | null
+    verified_at: string | null
+    dojah_reference: string | null
 }
 
 export async function findUserByClerkId(clerkUserId: string) {
@@ -217,7 +279,7 @@ export async function upsertUser(input: {
     await ensureSchema()
     const rows = await sql`
     INSERT INTO users (uuid, clerk_user_id, name, email, image, kyc_status, wallet_balance)
-    VALUES (${input.clerkUserId}, ${input.clerkUserId}, ${input.name}, ${input.email}, ${input.image}, 'PENDING', 0.00)
+    VALUES (${input.clerkUserId}, ${input.clerkUserId}, ${input.name}, ${input.email}, ${input.image}, 'UNVERIFIED', 0.00)
     ON CONFLICT (email) DO UPDATE
       SET clerk_user_id = COALESCE(users.clerk_user_id, EXCLUDED.clerk_user_id),
           name = EXCLUDED.name,
@@ -229,6 +291,188 @@ export async function upsertUser(input: {
 export async function updateUserKycStatus(status: string, userId: number) {
     await ensureSchema()
     await sql`UPDATE users SET kyc_status = ${status} WHERE id = ${userId}`
+}
+
+/* -------------------------------------------------------------------- kyc */
+
+export interface KycIdentity {
+    firstName: string
+    lastName: string
+    idNumber: string
+    dob: string
+}
+
+export type KycWriteOutcome =
+    /** The row was moved to VERIFIED by this call. */
+    | { result: 'VERIFIED' }
+    /** Already verified before this call - the caller should not re-verify. */
+    | { result: 'ALREADY_VERIFIED' }
+    /** Another account already claimed this national ID. */
+    | { result: 'ID_TAKEN' }
+
+/**
+ * Commits a passing verification.
+ *
+ * Everything that must be true together - the status flip, the identity
+ * columns, the audit row and the user's notification - is written inside one
+ * serializable transaction, so a crash or a concurrent duplicate submission can
+ * never leave a row marked VERIFIED without the identity that justified it.
+ *
+ * The `kyc_status <> 'VERIFIED'` guard makes the call idempotent: two requests
+ * racing on the same account produce one verification, not two.
+ */
+export async function recordKycVerification(
+    userId: number,
+    identity: KycIdentity,
+    reference: string | null
+): Promise<KycWriteOutcome> {
+    await ensureSchema()
+
+    try {
+        const [updated] = await withSerializationRetry(() =>
+            sql.transaction(
+                [
+                sql`
+        UPDATE users
+           SET kyc_status = 'VERIFIED',
+               first_name = ${identity.firstName},
+               last_name = ${identity.lastName},
+               national_id_number = ${identity.idNumber},
+               date_of_birth = ${identity.dob}::date,
+               verified_at = NOW(),
+               dojah_reference = ${reference}
+         WHERE id = ${userId}
+           AND kyc_status <> 'VERIFIED'
+        RETURNING id`,
+                sql`
+        INSERT INTO kyc_attempts (user_id, outcome, reference)
+        VALUES (${userId}, 'VERIFIED', ${reference})`,
+                // Fires only if the guarded update above actually landed, so a
+                // replayed request does not notify the user a second time.
+                sql`
+        INSERT INTO notifications (user_id, title, body, kind)
+        SELECT ${userId}, 'Identity verified',
+               'Your identity has been confirmed. You can now create virtual cards.', 'SUCCESS'
+         WHERE EXISTS (
+           -- NOW() is the transaction timestamp and is constant across this
+           -- block, so matching verified_at against it means precisely "the
+           -- update above landed in this transaction", not "was already
+           -- verified before it".
+           SELECT 1 FROM users
+            WHERE id = ${userId} AND kyc_status = 'VERIFIED' AND verified_at = NOW()
+         )`,
+                ],
+                { isolationLevel: 'Serializable' }
+            )
+        )
+
+        return (updated as unknown[]).length > 0 ? { result: 'VERIFIED' } : { result: 'ALREADY_VERIFIED' }
+    } catch (error) {
+        // The partial unique index rejected a national ID that another account
+        // already holds. That is a business outcome, not a server fault.
+        if (isUniqueViolation(error, 'users_national_id_key')) return { result: 'ID_TAKEN' }
+        throw error
+    }
+}
+
+/**
+ * Commits a failing verification. Deliberately does NOT write the identity
+ * columns: nothing the national database refused to confirm is allowed to be
+ * stored as though it were confirmed.
+ */
+export async function recordKycFailure(
+    userId: number,
+    reason: { mismatched?: string[]; detail?: string; reference?: string | null }
+): Promise<void> {
+    await ensureSchema()
+
+    await withSerializationRetry(() =>
+        sql.transaction(
+            [
+            // An admin-granted VERIFIED must not be knocked down by a later
+            // failed self-service attempt.
+            sql`UPDATE users SET kyc_status = 'FAILED' WHERE id = ${userId} AND kyc_status <> 'VERIFIED'`,
+            sql`
+      INSERT INTO kyc_attempts (user_id, outcome, reference, mismatched_fields, detail)
+      VALUES (${userId}, 'FAILED', ${reason.reference ?? null}, ${reason.mismatched ?? []}, ${reason.detail ?? null})`,
+            ],
+            { isolationLevel: 'Serializable' }
+        )
+    )
+}
+
+/** Attempts made by this user since `since`. Backs the submission rate limit. */
+export async function countKycAttemptsSince(userId: number, since: Date): Promise<number> {
+    await ensureSchema()
+    const rows = await sql`
+    SELECT COUNT(*)::int AS count
+      FROM kyc_attempts
+     WHERE user_id = ${userId} AND created_at > ${since.toISOString()}`
+    return (rows[0] as { count: number } | undefined)?.count ?? 0
+}
+
+export interface KycAttemptRow {
+    id: number
+    provider: string
+    outcome: string
+    reference: string | null
+    mismatched_fields: string[] | null
+    detail: string | null
+    created_at: string
+}
+
+/** The verification history behind an account, newest first, for admin review. */
+export async function listKycAttempts(userId: number, limit = 20) {
+    await ensureSchema()
+    const rows = await sql`
+    SELECT id, provider, outcome, reference, mismatched_fields, detail, created_at
+      FROM kyc_attempts
+     WHERE user_id = ${userId}
+     ORDER BY created_at DESC
+     LIMIT ${limit}`
+    return rows as unknown as KycAttemptRow[]
+}
+
+/** Resolves the account a Dojah webhook refers to, via the stored reference. */
+export async function findUserByDojahReference(reference: string) {
+    await ensureSchema()
+    const rows = await sql`SELECT * FROM users WHERE dojah_reference = ${reference} LIMIT 1`
+    return rows[0] as UserRow | undefined
+}
+
+/** Stores the provider reference before an async flow hands off to the widget. */
+export async function attachDojahReference(userId: number, reference: string) {
+    await ensureSchema()
+    await sql`
+    UPDATE users
+       SET dojah_reference = ${reference},
+           kyc_status = CASE WHEN kyc_status = 'VERIFIED' THEN kyc_status ELSE 'PENDING' END
+     WHERE id = ${userId}`
+}
+
+/**
+ * Serializable transactions may be aborted by Postgres (SQLSTATE 40001) purely
+ * because they raced, not because anything was wrong. That is a retry, not a
+ * failure - without this, two verification requests arriving together would
+ * surface a 500 to one of them.
+ */
+async function withSerializationRetry<T>(operation: () => Promise<T>, attempts = 3): Promise<T> {
+    for (let attempt = 1; ; attempt += 1) {
+        try {
+            return await operation()
+        } catch (error) {
+            const code = (error as { code?: string } | null)?.code
+            if (code !== '40001' || attempt >= attempts) throw error
+            // Brief, growing backoff so the retries do not collide again.
+            await new Promise((resolve) => setTimeout(resolve, 25 * attempt))
+        }
+    }
+}
+
+function isUniqueViolation(error: unknown, constraint: string): boolean {
+    const candidate = error as { code?: string; constraint?: string; message?: string } | null
+    if (candidate?.code !== '23505') return false
+    return candidate.constraint === constraint || Boolean(candidate.message?.includes(constraint))
 }
 
 /** Records today's closing balance so period-over-period deltas are real. */
@@ -777,6 +1021,8 @@ export interface LinkedWalletRow {
     label: string | null
     chain: string
     is_primary: boolean
+    /** Set only on platform-derived deposit addresses; null for linked wallets. */
+    derivation_index: number | null
     created_at: string
 }
 
@@ -860,10 +1106,16 @@ export async function listCryptoWallets(userId: number) {
 /** Unlinks an address. Promotes another to primary so one always remains. */
 export async function unlinkCryptoAddress(userId: number, address: string) {
     await ensureSchema()
+    // The platform-derived deposit address is not the user's to remove. It is
+    // the destination printed on their QR code, and deleting the row would not
+    // stop funds arriving there - it would only stop us recognising whose they
+    // are, turning every later deposit into an orphaned transfer.
     const removed = (
         await sql`
     DELETE FROM crypto_wallets
-     WHERE user_id = ${userId} AND LOWER(base_account_address) = LOWER(${address})
+     WHERE user_id = ${userId}
+       AND LOWER(base_account_address) = LOWER(${address})
+       AND source <> 'deposit_address'
     RETURNING id, is_primary`
     )[0] as { id: number; is_primary: boolean } | undefined
 
@@ -888,6 +1140,68 @@ export async function setPrimaryCryptoAddress(userId: number, address: string) {
      WHERE user_id = ${userId}
     RETURNING id, base_account_address, is_primary`
     return (rows as unknown as Array<{ is_primary: boolean }>).some((row) => row.is_primary)
+}
+
+/**
+ * Records the platform-derived deposit address for a user.
+ *
+ * Idempotent and safe to call on every authenticated request: the partial
+ * unique index on `(user_id) WHERE source = 'deposit_address'` means a race
+ * produces one row, and a second call is a no-op that returns the existing
+ * address rather than minting a parallel one.
+ */
+export async function provisionDepositAddress(input: {
+    userId: number
+    walletId: string
+    address: string
+    derivationIndex: number
+    chain?: string
+}): Promise<LinkedWalletRow> {
+    await ensureSchema()
+
+    const existing = (
+        await sql`
+    SELECT * FROM crypto_wallets
+     WHERE user_id = ${input.userId} AND source = 'deposit_address'
+     LIMIT 1`
+    )[0] as LinkedWalletRow | undefined
+
+    if (existing) return existing
+
+    const rows = await sql`
+    INSERT INTO crypto_wallets
+      (wallet_id, user_id, base_account_address, source, verified, chain, label, derivation_index, is_primary)
+    VALUES
+      (${input.walletId}, ${input.userId}, ${input.address}, 'deposit_address', TRUE,
+       ${input.chain ?? 'base'}, 'Swippable deposit address', ${input.derivationIndex},
+       -- Becomes the receive address only if the user has not already chosen
+       -- one, so provisioning never silently redirects an existing preference.
+       NOT EXISTS (SELECT 1 FROM crypto_wallets WHERE user_id = ${input.userId} AND is_primary))
+    ON CONFLICT DO NOTHING
+    RETURNING *`
+
+    if (rows[0]) return rows[0] as LinkedWalletRow
+
+    // Lost the race - the concurrent insert's row is the right answer.
+    const settled = (
+        await sql`
+    SELECT * FROM crypto_wallets
+     WHERE user_id = ${input.userId} AND source = 'deposit_address'
+     LIMIT 1`
+    )[0] as LinkedWalletRow | undefined
+
+    if (settled) return settled
+    throw new Error(`Could not provision a deposit address for user ${input.userId}`)
+}
+
+/** The user's platform-derived deposit address, if one has been provisioned. */
+export async function getDepositAddress(userId: number) {
+    await ensureSchema()
+    const rows = await sql`
+    SELECT * FROM crypto_wallets
+     WHERE user_id = ${userId} AND source = 'deposit_address'
+     LIMIT 1`
+    return (rows[0] as LinkedWalletRow | undefined) ?? null
 }
 
 export async function getWalletAddressOwner(address: string) {

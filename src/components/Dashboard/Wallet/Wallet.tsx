@@ -34,6 +34,7 @@ import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { LinkedWallets } from './LinkedWallets'
+import { DepositAddressCard } from './DepositAddressCard'
 import { formatMoney } from '@/lib/money'
 import {
     ApiRequestError,
@@ -748,6 +749,13 @@ export function Wallet() {
                     </p>
                 )}
             </motion.div>
+
+            {/*
+              Above the linked-wallet list on purpose: the personal deposit
+              address is the path that works for everyone, including users who
+              have never connected a wallet.
+            */}
+            <DepositAddressCard />
 
             <LinkedWallets wallets={wallet.data?.wallets ?? []} loading={wallet.isLoading} />
 

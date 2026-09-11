@@ -115,7 +115,9 @@ function serializeWallet(row: LinkedWalletRow): LinkedWallet {
     return {
         address: row.base_account_address,
         chain: String(row.chain ?? 'base'),
-        source: (['clerk', 'wallet_connect', 'manual'].includes(source) ? source : 'manual') as LinkedWallet['source'],
+        source: (['clerk', 'wallet_connect', 'manual', 'deposit_address'].includes(source)
+            ? source
+            : 'manual') as LinkedWallet['source'],
         verified: Boolean(row.verified),
         isPrimary: Boolean(row.is_primary),
         label: row.label ?? null,

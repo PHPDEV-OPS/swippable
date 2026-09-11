@@ -1,6 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { findUserByClerkId, touchAppSession, upsertUser, type UserRow } from '@/lib/db'
 import { syncClerkWeb3Wallets } from '@/lib/web3-identity'
+import { ensureDepositAddress } from '@/lib/deposit-address'
 
 /**
  * Resolves the Clerk session to the local user row, creating the mirror row on
@@ -38,6 +39,20 @@ export async function getAuthenticatedUser(): Promise<UserRow | null> {
         await syncClerkWeb3Wallets({ userId: user.id, wallets: clerkUser.web3Wallets })
     } catch (error) {
         console.error('[auth] Clerk Web3 wallet sync failed', error)
+    }
+
+    // Give every account its own USDC receiving address. Done here rather than
+    // in a sign-up hook so accounts that predate this feature are backfilled on
+    // their next request, and so a user who never completes a webhook-driven
+    // onboarding still ends up with somewhere to receive funds.
+    //
+    // Same rule as the wallet sync: this must never break a sign-in. A missing
+    // deposit address costs the user one feature; throwing costs them the
+    // session.
+    try {
+        await ensureDepositAddress(user.id)
+    } catch (error) {
+        console.error('[auth] deposit address provisioning failed', error)
     }
 
     return user

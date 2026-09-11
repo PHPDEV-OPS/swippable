@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireUser } from '@/lib/auth'
 import { HttpError, readJson, withRouteErrors } from '@/lib/http'
+import { requireVerifiedKycApi } from '@/lib/kyc'
 import { issueCard } from '@/lib/cards'
 import { getAccountStatus } from '@/lib/admin-db'
 import { assertRailOpen } from '@/lib/platform'
@@ -16,9 +16,13 @@ export const dynamic = 'force-dynamic'
  * row with the returned provider id as `flutterwave_card_id` and the allocated
  * amount as `card_spending_limit`. The balance check and the insert happen in
  * one guarded statement, so concurrent requests cannot over-allocate.
+ *
+ * The KYC check is enforced here as well as in the UI. The redirect on
+ * /dashboard/cards/create only steers a browser; this is the boundary that an
+ * unverified account actually cannot cross, whatever client it calls from.
  */
 export const POST = withRouteErrors('cards:issue', async (request: Request) => {
-    const user = await requireUser()
+    const user = await requireVerifiedKycApi()
 
     // Card minting is one of the rails the global kill switch halts.
     await assertRailOpen('CARD_MINTING')

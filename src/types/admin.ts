@@ -148,12 +148,43 @@ export interface LimitUsage {
     monthlySpending: Decimal
 }
 
+/**
+ * The identity a user was verified against.
+ *
+ * `nationalIdNumber` is masked to the last four digits. A reviewer confirming
+ * "is this the right person?" has the name, the date of birth and the last
+ * four, which is enough - handing the full number to every admin screen (and
+ * into browser caches and logs) is exposure that buys nothing.
+ */
+export interface KycIdentityRecord {
+    firstName: string | null
+    lastName: string | null
+    nationalIdMasked: string | null
+    dateOfBirth: string | null
+    verifiedAt: string | null
+    dojahReference: string | null
+}
+
+/** One verification attempt, pass or fail. */
+export interface KycAttemptRecord {
+    id: number
+    provider: string
+    outcome: string
+    reference: string | null
+    /** Field names only - never the values that disagreed. */
+    mismatchedFields: string[]
+    detail: string | null
+    createdAt: string
+}
+
 export interface AdminUserDetail extends AdminUserSummary {
     limits: UserLimits
     usage: LimitUsage
     adminNotes: string | null
     kycReviewedAt: string | null
     kycReviewedBy: string | null
+    kycIdentity: KycIdentityRecord | null
+    kycAttempts: KycAttemptRecord[]
     onChainAddress: string | null
     cards: AdminCard[]
     recentTransactions: AdminTransaction[]
