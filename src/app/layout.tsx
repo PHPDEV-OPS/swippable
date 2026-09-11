@@ -18,7 +18,17 @@ export const metadata: Metadata = {
     'One wallet, unlimited virtual cards. Top up with M-Pesa or USDC and spend from a single balance.',
   applicationName: 'Swippable',
   manifest: '/manifest.webmanifest',
+  // Declaring `icons` at all suppresses Next's file-convention injection for
+  // app/icon.svg, so listing only `apple` here silently dropped the browser tab
+  // icon entirely - the route still served /icon.svg, but no <link rel="icon">
+  // was ever emitted. Every rel we want has to be named explicitly.
   icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      // PNG fallback for the handful of contexts that ignore SVG favicons.
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    shortcut: '/icon.svg',
     apple: '/icons/apple-touch-icon.png',
   },
   appleWebApp: {
