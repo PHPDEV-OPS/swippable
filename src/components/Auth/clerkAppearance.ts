@@ -8,6 +8,16 @@
  */
 
 export const authClerkAppearance = {
+    layout: {
+        /*
+          With three providers enabled (Google, Base, Coinbase Wallet) Clerk
+          falls back to bare icon buttons, which left three unlabelled circles
+          where the sign-in options should be - a blue square is not a thing
+          anyone can be expected to recognise. This pins the labelled variant.
+        */
+        socialButtonsVariant: 'blockButton' as const,
+        shimmer: false,
+    },
     variables: {
         colorPrimary: '#7042f4',
         colorBackground: '#ffffff',
@@ -27,19 +37,19 @@ export const authClerkAppearance = {
         // Display heading, sized to the design rather than Clerk's default.
         // It steps down on a phone so the title never wraps to three lines
         // above a form the person still has to scroll to.
-        header: '!text-center !p-0 !mb-6',
+        header: '!text-center !p-0 !mb-5',
         headerTitle:
-            '!text-[30px] sm:!text-[38px] !leading-[1.1] !font-bold !text-[#09090b] !tracking-[-0.02em]',
-        headerSubtitle: '!text-[14.5px] sm:!text-[15px] !font-normal !text-[#52525b] !mt-2.5',
+            '!text-[30px] sm:!text-[36px] !leading-[1.1] !font-bold !text-[#09090b] !tracking-[-0.02em]',
+        headerSubtitle: '!text-[14.5px] sm:!text-[15px] !font-normal !text-[#52525b] !mt-2',
 
         // A dashed rule separates the heading from the form in the design.
-        main: '!gap-0 !border-t !border-dashed !border-[#d9d9e0] !pt-7',
+        main: '!gap-0 !border-t !border-dashed !border-[#d9d9e0] !pt-6',
 
-        // Three wallet/social options stack here, so they carry their own even
-        // rhythm rather than inheriting Clerk's default spacing.
-        socialButtons: '!flex !w-full !flex-col !gap-2.5',
+        // Three options stack here, so they carry their own even rhythm rather
+        // than inheriting Clerk's default spacing.
+        socialButtons: '!w-full !gap-2.5',
         socialButtonsBlockButton:
-            '!w-full !h-[48px] sm:!h-[52px] !bg-[#f4f4f6] hover:!bg-[#ebebef] active:!bg-[#e4e4ea] !border-none !rounded-full !text-[#18181b] !font-semibold !text-[15px] !shadow-none flex items-center justify-center gap-3 transition-colors cursor-pointer',
+            '!w-full !h-[48px] sm:!h-[52px] !bg-[#f4f4f6] hover:!bg-[#ebebef] active:!bg-[#e4e4ea] !border-none !rounded-full !text-[#18181b] !font-semibold !text-[15px] !shadow-none !justify-center !gap-3 transition-colors cursor-pointer',
         socialButtonsBlockButtonText: '!text-[#18181b] !font-semibold !text-[14.5px] sm:!text-[15px]',
         socialButtonsProviderIcon: '!w-[19px] !h-[19px]',
 

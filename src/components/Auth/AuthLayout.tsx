@@ -26,7 +26,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, mode }) => {
     <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-[#f7f7f8] font-sans selection:bg-[#7042f4]/20 selection:text-[#7042f4] lg:h-[100dvh] lg:max-h-[100dvh] lg:flex-row lg:overflow-hidden">
       {/* Form column */}
       <div
-        className="relative flex w-full flex-col items-center bg-[#f7f7f8] px-5 pb-10 pt-[calc(1.75rem+env(safe-area-inset-top,0px))] text-gray-900 [color-scheme:light] sm:px-10 lg:order-first lg:w-[44%] lg:justify-center lg:overflow-y-auto lg:px-14 lg:py-12"
+        className="swp-auth relative flex w-full flex-col items-center bg-[#f7f7f8] px-5 pb-10 pt-[calc(1.75rem+env(safe-area-inset-top,0px))] text-gray-900 [color-scheme:light] sm:px-10 lg:order-first lg:w-[44%] lg:overflow-y-auto lg:px-14 lg:py-12"
         style={{ colorScheme: 'light' }}
       >
         {/*
@@ -41,9 +41,15 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, mode }) => {
             className="flex w-full items-center gap-3.5 rounded-[22px] bg-gradient-to-br from-[#7847eb] to-[#6733d7] px-5 py-4 text-white shadow-lg shadow-[#7042f4]/25 transition-transform active:scale-[0.99] lg:hidden"
           >
             <IsometricLayers size={42} />
+            {/*
+              "Stablecoin payments infrastructure" is how you pitch to a
+              platform team, not what someone opening the app needs to read.
+              This is the line the marketing site leads with, and it says what
+              the person is about to get.
+            */}
             <span className="text-[15px] leading-snug">
-              <span className="font-bold">Stablecoin payments </span>
-              <span className="text-white/75">infrastructure</span>
+              <span className="font-bold">One wallet. </span>
+              <span className="text-white/75">Unlimited virtual cards.</span>
             </span>
           </Link>
 
@@ -84,7 +90,16 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, mode }) => {
             than a deliberate pair.
           */}
           <div className="relative z-10 my-auto flex flex-col items-center py-2 text-center">
-            <IsometricLayers size={220} className="drop-shadow-xl" />
+            {/*
+              The mark is drawn in translucent white line-work, which all but
+              disappeared at 220px against the purple. A soft light behind it
+              gives the strokes something to sit against, and the larger size
+              lets it carry the panel the way a hero image should.
+            */}
+            <div className="relative flex items-center justify-center">
+              <div className="pointer-events-none absolute h-64 w-64 rounded-full bg-white/15 blur-3xl" />
+              <IsometricLayers size={272} className="relative drop-shadow-2xl" />
+            </div>
 
             <h2 className="mt-9 max-w-xl text-[30px] font-extrabold leading-[1.12] tracking-tight xl:text-[36px]">
               Move money without borders.
