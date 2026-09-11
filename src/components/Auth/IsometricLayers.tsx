@@ -1,9 +1,22 @@
-import React from 'react'
+import React, { useId } from 'react'
 
 export const IsometricLayers: React.FC<{ className?: string; size?: number }> = ({
   className = '',
   size = 200,
 }) => {
+  /*
+    The mark is rendered twice on the auth pages - once in the phone brand band
+    and once as the desktop hero - and SVG ids are document-global. With fixed
+    ids both instances declared the same gradients and filter, every `url(#id)`
+    resolved to whichever came first in the DOM, and when that was the hidden
+    instance the desktop artwork painted as nothing at all.
+  */
+  const uid = useId().replace(/:/g, '')
+  const gradTop = `layerGradTop-${uid}`
+  const gradMid = `layerGradMid-${uid}`
+  const gradBottom = `layerGradBottom-${uid}`
+  const glow = `layerGlow-${uid}`
+
   return (
     <svg
       width={size}
@@ -14,19 +27,19 @@ export const IsometricLayers: React.FC<{ className?: string; size?: number }> = 
       className={className}
     >
       <defs>
-        <linearGradient id="layerGradTop" x1="20" y1="20" x2="220" y2="100" gradientUnits="userSpaceOnUse">
+        <linearGradient id={gradTop} x1="20" y1="20" x2="220" y2="100" gradientUnits="userSpaceOnUse">
           <stop stopColor="#ffffff" stopOpacity="0.25" />
           <stop stopColor="#ffffff" stopOpacity="0.05" />
         </linearGradient>
-        <linearGradient id="layerGradMid" x1="20" y1="60" x2="220" y2="140" gradientUnits="userSpaceOnUse">
+        <linearGradient id={gradMid} x1="20" y1="60" x2="220" y2="140" gradientUnits="userSpaceOnUse">
           <stop stopColor="#ffffff" stopOpacity="0.18" />
           <stop stopColor="#ffffff" stopOpacity="0.03" />
         </linearGradient>
-        <linearGradient id="layerGradBottom" x1="20" y1="100" x2="220" y2="180" gradientUnits="userSpaceOnUse">
+        <linearGradient id={gradBottom} x1="20" y1="100" x2="220" y2="180" gradientUnits="userSpaceOnUse">
           <stop stopColor="#ffffff" stopOpacity="0.12" />
           <stop stopColor="#ffffff" stopOpacity="0.02" />
         </linearGradient>
-        <filter id="layerGlow" x="0" y="0" width="240" height="240" filterUnits="userSpaceOnUse">
+        <filter id={glow} x="0" y="0" width="240" height="240" filterUnits="userSpaceOnUse">
           <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#000000" floodOpacity="0.15" />
         </filter>
       </defs>
@@ -37,10 +50,10 @@ export const IsometricLayers: React.FC<{ className?: string; size?: number }> = 
       <line x1="30" y1="88" x2="30" y2="158" stroke="white" strokeOpacity="0.1" strokeDasharray="3 3" />
 
       {/* Layer 3 - Bottom */}
-      <g filter="url(#layerGlow)">
+      <g filter={`url(#${glow})`}>
         <polygon
           points="120,118 210,168 120,218 30,168"
-          fill="url(#layerGradBottom)"
+          fill={`url(#${gradBottom})`}
           stroke="white"
           strokeOpacity="0.45"
           strokeWidth="1.75"
@@ -62,10 +75,10 @@ export const IsometricLayers: React.FC<{ className?: string; size?: number }> = 
       </g>
 
       {/* Layer 2 - Middle */}
-      <g filter="url(#layerGlow)">
+      <g filter={`url(#${glow})`}>
         <polygon
           points="120,78 210,128 120,178 30,128"
-          fill="url(#layerGradMid)"
+          fill={`url(#${gradMid})`}
           stroke="white"
           strokeOpacity="0.65"
           strokeWidth="1.75"
@@ -87,10 +100,10 @@ export const IsometricLayers: React.FC<{ className?: string; size?: number }> = 
       </g>
 
       {/* Layer 1 - Top */}
-      <g filter="url(#layerGlow)">
+      <g filter={`url(#${glow})`}>
         <polygon
           points="120,38 210,88 120,138 30,88"
-          fill="url(#layerGradTop)"
+          fill={`url(#${gradTop})`}
           stroke="white"
           strokeOpacity="0.9"
           strokeWidth="2"

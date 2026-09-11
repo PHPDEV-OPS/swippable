@@ -550,6 +550,38 @@ html {
   background-color: transparent !important;
 }
 
+/*
+  Phone sizing for the Clerk widget.
+
+  The rules above pin desktop values with !important, which beat the responsive
+  utilities `authClerkAppearance` sets, so the phone sizes have to be declared
+  here at the same weight. The input size is the one that actually breaks
+  things: below 16px, iOS Safari zooms the viewport the moment the field takes
+  focus and never zooms back out, which leaves the form half off-screen.
+*/
+@media (max-width: 639px) {
+  .cl-headerTitle {
+    font-size: 30px !important;
+  }
+
+  .cl-headerSubtitle {
+    font-size: 14.5px !important;
+  }
+
+  .cl-formFieldInput {
+    height: 48px !important;
+    font-size: 16px !important;
+  }
+
+  .cl-formButtonPrimary {
+    height: 48px !important;
+  }
+
+  .cl-socialButtonsBlockButton {
+    height: 48px !important;
+  }
+}
+
 
 
 /* ============================================================================
@@ -632,5 +664,79 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================================
+   Clerk social buttons on the auth pages
+   ----------------------------------------------------------------------------
+   Once a third provider is enabled, Clerk drops its labelled block buttons for
+   a row of bare icon buttons - and it sets no aria-label on them, so all that
+   reaches the page (and a screen reader) is three unlabelled circles. Nobody
+   can be expected to recognise Base from a blue square.
+
+   The provider is in the class name, so the label is restored from there and
+   the row is stacked back into full-width blocks. Generated content counts
+   towards the accessible name in every current engine, so this fixes the
+   screen-reader case as well as the visible one.
+   ========================================================================== */
+
+/*
+  The row is laid out by a grid on `.cl-socialButtons` - the inner element, not
+  `.cl-socialButtonsRoot` - with an explicit `grid-template-columns` per
+  provider. Overriding the outer element alone left the grid untouched, so both
+  are pinned here, as hard overrides because Clerk's stylesheet lands after
+  ours.
+*/
+.swp-auth .cl-socialButtonsRoot,
+.swp-auth .cl-socialButtons {
+  display: flex !important;
+  flex-direction: column !important;
+  grid-template-columns: none !important;
+  gap: 0.625rem !important;
+  width: 100% !important;
+}
+
+.swp-auth .cl-socialButtonsIconButton {
+  width: 100% !important;
+  height: 48px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: 9999px;
+  background-color: #f4f4f6;
+  border: none;
+  box-shadow: none;
+  transition: background-color 150ms ease;
+}
+
+.swp-auth .cl-socialButtonsIconButton:hover {
+  background-color: #ebebef;
+}
+
+.swp-auth .cl-socialButtonsIconButton::after {
+  font-size: 15px;
+  font-weight: 600;
+  color: #18181b;
+  line-height: 1;
+}
+
+.swp-auth .cl-socialButtonsIconButton__google::after {
+  content: 'Continue with Google';
+}
+
+.swp-auth .cl-socialButtonsIconButton__base::after {
+  content: 'Continue with Base';
+}
+
+.swp-auth .cl-socialButtonsIconButton__coinbase_wallet::after {
+  content: 'Continue with Coinbase Wallet';
+}
+
+@media (min-width: 640px) {
+  .swp-auth .cl-socialButtonsIconButton {
+    height: 52px !important;
   }
 }
